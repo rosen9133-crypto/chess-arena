@@ -1,23 +1,29 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import {
+  useState,
+  type CSSProperties,
+} from "react";
 import { Chess, type Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
 
 import CapturedPieces from "@/components/CapturedPieces";
 import GameControls from "@/components/GameControls";
 import GameInfo from "@/components/GameInfo";
+import GameOverDialog from "@/components/GameOverDialog";
 import { MoveHistory } from "@/components/MoveHistory";
+import PromotionDialog from "@/components/PromotionDialog";
+import { getCapturedPieces } from "@/lib/gameUtils";
+import { makeMove } from "@/lib/moveHelpers";
+import type {
+  BoardOrientation,
+  ChessMove,
+  GameOverDetails,
+  PendingPromotion,
+  PieceType,
+  PromotionPiece,
+} from "@/types/chess";
 
-type BoardOrientation = "white" | "black";
-
-type ChessMove = {
-  from: string;
-  to: string;
-  promotion?: string;
-};
-
-type PieceType = "p" | "n" | "b" | "r" | "q";
 
 const whitePieceSymbols: Record<PieceType, string> = {
   p: "♙",
@@ -49,9 +55,22 @@ export default function PlayPage() {
   const [boardOrientation, setBoardOrientation] =
     useState<BoardOrientation>("white");
 
-  function createGameWithHistory(movesToKeep?: number) {
+  const [pendingPromotion, setPendingPromotion] =
+    useState<PendingPromotion | null>(null);
+
+  const [
+    isGameOverDialogClosed,
+    setIsGameOverDialogClosed,
+  ] = useState(false);
+
+  function createGameWithHistory(
+    movesToKeep?: number,
+  ) {
     const newGame = new Chess();
-    const completeHistory = game.history({ verbose: true });
+
+    const completeHistory = game.history({
+      verbose: true,
+    });
 
     const historyToReplay =
       typeof movesToKeep === "number"
@@ -76,6 +95,7 @@ export default function PlayPage() {
       const result = gameCopy.move(move);
 
       setGame(gameCopy);
+      setIsGameOverDialogClosed(false);
 
       return result;
     } catch {
@@ -83,8 +103,61 @@ export default function PlayPage() {
     }
   }
 
-  function onDrop(sourceSquare: string, targetSquare: string) {
-    if (game.isGameOver()) {
+  function isPromotionMove(
+    sourceSquare: string,
+    targetSquare: string,
+  ) {
+    const piece = game.get(
+      sourceSquare as Square,
+    );
+
+    if (!piece || piece.type !== "p") {
+      return false;
+    }
+
+    const legalMoves = game.moves({
+      square: sourceSquare as Square,
+      verbose: true,
+    });
+
+    return legalMoves.some(
+      (move) =>
+        move.to === targetSquare &&
+        Boolean(move.promotion),
+    );
+  }
+
+  function onDrop(
+    sourceSquare: string,
+    targetSquare: string,
+  ) {
+    if (
+      game.isGameOver() ||
+      pendingPromotion
+    ) {
+      return false;
+    }
+
+    if (
+      isPromotionMove(
+        sourceSquare,
+        targetSquare,
+      )
+    ) {
+      const pawn = game.get(
+        sourceSquare as Square,
+      );
+
+      if (!pawn || pawn.type !== "p") {
+        return false;
+      }
+
+      setPendingPromotion({
+        from: sourceSquare,
+        to: targetSquare,
+        color: pawn.color,
+      });
+
       return false;
     }
 
@@ -92,110 +165,325 @@ export default function PlayPage() {
       makeMove({
         from: sourceSquare,
         to: targetSquare,
-        promotion: "q",
       }) !== null
     );
+  }
+
+  function handlePromotionSelect(
+    piece: PromotionPiece,
+  ) {
+    if (!pendingPromotion) {
+      return;
+    }
+
+    makeMove({
+      from: pendingPromotion.from,
+      to: pendingPromotion.to,
+      promotion: piece,
+    });
+
+    setPendingPromotion(null);
   }
 
   function handleNewGame() {
     setGame(new Chess());
     setBoardOrientation("white");
+    setPendingPromotion(null);
+    setIsGameOverDialogClosed(false);
   }
 
   function handleUndo() {
-    const currentHistory = game.history({ verbose: true });
+    setPendingPromotion(null);
+
+    const currentHistory = game.history({
+      verbose: true,
+    });
 
     if (currentHistory.length === 0) {
       return;
     }
 
-    const gameWithoutLastMove = createGameWithHistory(
-      currentHistory.length - 1,
-    );
+    const gameWithoutLastMove =
+      createGameWithHistory(
+        currentHistory.length - 1,
+      );
 
     setGame(gameWithoutLastMove);
+    setIsGameOverDialogClosed(false);
   }
 
   function handleFlipBoard() {
-    setBoardOrientation((currentOrientation) =>
-      currentOrientation === "white" ? "black" : "white",
+    setBoardOrientation(
+      (currentOrientation) =>
+        currentOrientation === "white"
+          ? "black"
+          : "white",
     );
   }
 
-  function getCapturedPieces() {
-    const whiteCaptures: PieceType[] = [];
-    const blackCaptures: PieceType[] = [];
+  function handleCloseGameOverDialog() {
+    setIsGameOverDialogClosed(true);
+  }
 
-    const verboseHistory = game.history({ verbose: true });
+  function handleAnalysis() {
+    window.alert(
+      "Game analysis will be available soon.",
+    );
+  }
 
-    verboseHistory.forEach((move) => {
-      if (!move.captured) {
+  async function handleShare() {
+    const pgn = game.pgn();
+
+    const shareText = [
+      "Chess Arena",
+      "",
+      pgn || "Finished chess game",
+    ].join("\n");
+
+    try {
+      if (navigator.share) {
+        await navigator.share({
+          title: "Chess Arena Game",
+          text: shareText,
+        });
+
         return;
       }
 
-      const capturedPiece = move.captured as PieceType;
+      await navigator.clipboard.writeText(
+        shareText,
+      );
 
-      if (move.color === "w") {
-        whiteCaptures.push(capturedPiece);
-      } else {
-        blackCaptures.push(capturedPiece);
+      window.alert(
+        "The game was copied to your clipboard.",
+      );
+    } catch (error) {
+      if (
+        error instanceof DOMException &&
+        error.name === "AbortError"
+      ) {
+        return;
       }
-    });
 
-    whiteCaptures.sort(
-      (firstPiece, secondPiece) =>
-        pieceOrder[firstPiece] - pieceOrder[secondPiece],
-    );
-
-    blackCaptures.sort(
-      (firstPiece, secondPiece) =>
-        pieceOrder[firstPiece] - pieceOrder[secondPiece],
-    );
-
-    return {
-      whiteCaptured: whiteCaptures.map(
-        (piece) => blackPieceSymbols[piece],
-      ),
-
-      blackCaptured: blackCaptures.map(
-        (piece) => whitePieceSymbols[piece],
-      ),
-    };
+      window.alert(
+        "The game could not be shared.",
+      );
+    }
   }
 
+
   function getLastMoveSquareStyles() {
-    const history = game.history({ verbose: true });
+    const history = game.history({
+      verbose: true,
+    });
+
     const lastMove = history.at(-1);
 
     if (!lastMove) {
       return {};
     }
 
-    const highlightedSquareStyle: CSSProperties = {
-      background:
-        "radial-gradient(circle, rgba(250, 204, 21, 0.72) 0%, rgba(234, 179, 8, 0.48) 100%)",
+    const highlightedSquareStyle:
+      CSSProperties = {
+        background:
+          "radial-gradient(circle, rgba(250, 204, 21, 0.72) 0%, rgba(234, 179, 8, 0.48) 100%)",
 
-      boxShadow:
-        "inset 0 0 0 4px rgba(253, 224, 71, 0.62)",
-    };
+        boxShadow:
+          "inset 0 0 0 4px rgba(253, 224, 71, 0.62)",
+      };
 
     return {
-      [lastMove.from as Square]: highlightedSquareStyle,
-      [lastMove.to as Square]: highlightedSquareStyle,
+      [lastMove.from as Square]:
+        highlightedSquareStyle,
+
+      [lastMove.to as Square]:
+        highlightedSquareStyle,
     };
   }
 
-  const isFlipped = boardOrientation === "black";
-  const canUndo = game.history().length > 0;
+  function getCheckSquareStyles() {
+    if (!game.isCheck()) {
+      return {};
+    }
 
-  const { whiteCaptured, blackCaptured } =
-    getCapturedPieces();
+    const board = game.board();
 
-  const lastMoveSquareStyles =
-    getLastMoveSquareStyles();
+    for (let row = 0; row < 8; row++) {
+      for (
+        let column = 0;
+        column < 8;
+        column++
+      ) {
+        const piece = board[row][column];
+
+        if (
+          piece &&
+          piece.type === "k" &&
+          piece.color === game.turn()
+        ) {
+          const file = String.fromCharCode(
+            97 + column,
+          );
+
+          const rank = String(8 - row);
+
+          const kingSquare =
+            `${file}${rank}` as Square;
+
+          const checkedKingStyle:
+            CSSProperties = {
+              background:
+                "radial-gradient(circle, rgba(239, 68, 68, 0.95) 0%, rgba(185, 28, 28, 0.9) 55%, rgba(127, 29, 29, 0.95) 100%)",
+
+              boxShadow:
+                "inset 0 0 0 4px rgba(254, 202, 202, 0.65), inset 0 0 24px rgba(127, 29, 29, 0.9)",
+            };
+
+          return {
+            [kingSquare]:
+              checkedKingStyle,
+          };
+        }
+      }
+    }
+
+    return {};
+  }
+
+  function getGameOverDetails():
+    GameOverDetails {
+    if (!game.isGameOver()) {
+      return {
+        isOpen: false,
+        title: "",
+        subtitle: "",
+        score: "",
+        result: null,
+      };
+    }
+
+    if (game.isCheckmate()) {
+      const whiteWon =
+        game.turn() === "b";
+
+      return {
+        isOpen: true,
+        title: "Checkmate",
+        subtitle: whiteWon
+          ? "White wins the game."
+          : "Black wins the game.",
+        score: whiteWon ? "1–0" : "0–1",
+        result: whiteWon
+          ? "white-win"
+          : "black-win",
+      };
+    }
+
+    if (game.isStalemate()) {
+      return {
+        isOpen: true,
+        title: "Stalemate",
+        subtitle:
+          "The player has no legal moves, but the king is not in check.",
+        score: "½–½",
+        result: "draw",
+      };
+    }
+
+    if (game.isThreefoldRepetition()) {
+      return {
+        isOpen: true,
+        title: "Draw",
+        subtitle:
+          "The position was repeated three times.",
+        score: "½–½",
+        result: "draw",
+      };
+    }
+
+    if (game.isInsufficientMaterial()) {
+      return {
+        isOpen: true,
+        title: "Draw",
+        subtitle:
+          "There is insufficient material to deliver checkmate.",
+        score: "½–½",
+        result: "draw",
+      };
+    }
+
+    return {
+      isOpen: true,
+      title: "Draw",
+      subtitle:
+        "The game ended in a draw.",
+      score: "½–½",
+      result: "draw",
+    };
+  }
+
+  function getTurnLabel() {
+    if (game.isGameOver()) {
+      return "Finished";
+    }
+
+    return game.turn() === "w"
+      ? "White to move"
+      : "Black to move";
+  }
+
+  const canUndo =
+    game.history().length > 0 &&
+    !game.isGameOver();
+
+  const hasGameStarted =
+    game.history().length > 0;
+
+  const {
+    whiteCaptured,
+    blackCaptured,
+  } = getCapturedPieces(game);
+
+  const squareStyles = {
+    ...getLastMoveSquareStyles(),
+    ...getCheckSquareStyles(),
+  };
+
+  const gameOverDetails =
+    getGameOverDetails();
+
+  const shouldShowGameOverDialog =
+    gameOverDetails.isOpen &&
+    !isGameOverDialogClosed;
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6">
+      <PromotionDialog
+        isOpen={
+          pendingPromotion !== null &&
+          !game.isGameOver()
+        }
+        color={
+          pendingPromotion?.color ??
+          game.turn()
+        }
+        onSelect={handlePromotionSelect}
+      />
+
+      <GameOverDialog
+        isOpen={shouldShowGameOverDialog}
+        title={gameOverDetails.title}
+        subtitle={gameOverDetails.subtitle}
+        score={gameOverDetails.score}
+        result={gameOverDetails.result}
+        onClose={
+          handleCloseGameOverDialog
+        }
+        onNewGame={handleNewGame}
+        onAnalysis={handleAnalysis}
+        onShare={handleShare}
+      />
+
       <div className="mx-auto max-w-[1450px]">
         <header className="mb-10 text-center">
           <h1 className="text-4xl font-extrabold tracking-tight text-yellow-400 sm:text-5xl">
@@ -203,72 +491,113 @@ export default function PlayPage() {
           </h1>
 
           <p className="mt-3 text-slate-400">
-            Играй, развивай уменията си и покори арената.
+            Play, improve your skills and
+            conquer the arena.
           </p>
         </header>
 
         <div className="grid items-start gap-8 xl:grid-cols-[288px_minmax(0,620px)_288px] xl:justify-center">
           <aside className="flex w-full flex-col gap-6">
-            <MoveHistory history={game.history()} />
+            <MoveHistory
+  history={game.history()}
+  result={
+    game.isGameOver()
+      ? gameOverDetails.score
+      : undefined
+  }
+/>
 
             <GameControls
               canUndo={canUndo}
-              isFlipped={isFlipped}
+              hasGameStarted={hasGameStarted}
+              boardOrientation={
+                boardOrientation
+              }
               onNewGame={handleNewGame}
               onUndo={handleUndo}
-              onFlipBoard={handleFlipBoard}
+              onFlipBoard={
+                handleFlipBoard
+              }
+              onBoardOrientationChange={
+                setBoardOrientation
+              }
             />
           </aside>
 
           <section className="w-full">
-            <div className="mx-auto w-full max-w-[620px] overflow-hidden rounded-xl border border-slate-700 bg-slate-800 p-2 shadow-2xl shadow-black/30">
+            <div className="mx-auto w-full max-w-[620px] overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 p-2 shadow-2xl shadow-black/30">
               <Chessboard
                 position={game.fen()}
                 onPieceDrop={onDrop}
-                boardOrientation={boardOrientation}
-                customSquareStyles={lastMoveSquareStyles}
+                boardOrientation={
+                  boardOrientation
+                }
+                customSquareStyles={
+                  squareStyles
+                }
               />
             </div>
 
-            <div className="mx-auto mt-4 flex w-full max-w-[620px] items-center justify-between rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+            <div className="mx-auto mt-4 grid w-full max-w-[620px] grid-cols-3 items-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 shadow-lg">
               <div>
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Играч с белите
+                  White player
                 </p>
 
-                <p className="font-semibold text-white">
+                <p className="mt-1 font-semibold text-white">
                   ⚪ Rosen
                 </p>
               </div>
 
               <div className="text-center">
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Ход
+                  {getTurnLabel()}
                 </p>
 
-                <p className="font-bold text-yellow-400">
-                  {game.moveNumber()}
+                <p className="mt-1 font-bold text-yellow-400">
+                  {game.isGameOver()
+                    ? gameOverDetails.score
+                    : `Move ${game.moveNumber()}`}
                 </p>
               </div>
 
               <div className="text-right">
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Играч с черните
+                  Black player
                 </p>
 
-                <p className="font-semibold text-white">
+                <p className="mt-1 font-semibold text-white">
                   ⚫ Opponent
                 </p>
               </div>
             </div>
+
+            {game.isGameOver() &&
+              isGameOverDialogClosed && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setIsGameOverDialogClosed(
+                      false,
+                    )
+                  }
+                  className="mx-auto mt-4 block rounded-lg border border-yellow-400/60 bg-yellow-400/10 px-5 py-2.5 font-semibold text-yellow-300 transition hover:bg-yellow-400/20"
+                >
+                  View game result
+                </button>
+              )}
           </section>
 
           <aside className="flex w-full flex-col gap-6">
             <GameInfo game={game} />
 
             <CapturedPieces
-              whiteCaptured={whiteCaptured}
-              blackCaptured={blackCaptured}
+              whiteCaptured={
+                whiteCaptured
+              }
+              blackCaptured={
+                blackCaptured
+              }
             />
           </aside>
         </div>

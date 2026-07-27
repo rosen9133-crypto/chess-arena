@@ -1,8 +1,12 @@
 type MoveHistoryProps = {
   history: string[];
+  result?: string;
 };
 
-export function MoveHistory({ history }: MoveHistoryProps) {
+export function MoveHistory({
+  history,
+  result,
+}: MoveHistoryProps) {
   const rows = [];
 
   for (let i = 0; i < history.length; i += 2) {
@@ -50,6 +54,18 @@ export function MoveHistory({ history }: MoveHistoryProps) {
                 </div>
               </div>
             ))}
+
+            {result && (
+              <div className="border-t border-slate-700 bg-slate-900 px-3 py-4 text-center">
+                <p className="text-xs uppercase tracking-widest text-slate-400">
+                  Result
+                </p>
+
+                <p className="mt-2 text-2xl font-extrabold text-yellow-400">
+                  {result}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
