@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  useEffect,
   useState,
   type CSSProperties,
 } from "react";
@@ -14,7 +15,10 @@ import GameOverDialog from "@/components/GameOverDialog";
 import { MoveHistory } from "@/components/MoveHistory";
 import PromotionDialog from "@/components/PromotionDialog";
 import { getCapturedPieces } from "@/lib/gameUtils";
-import { makeMove } from "@/lib/moveHelpers";
+import {
+  preloadSounds,
+  playSound,
+} from "@/lib/sounds/soundManager";
 import type {
   BoardOrientation,
   ChessMove,
@@ -62,6 +66,9 @@ export default function PlayPage() {
     isGameOverDialogClosed,
     setIsGameOverDialogClosed,
   ] = useState(false);
+useEffect(() => {
+  preloadSounds();
+}, []);
 
   function createGameWithHistory(
     movesToKeep?: number,
@@ -96,6 +103,8 @@ export default function PlayPage() {
 
       setGame(gameCopy);
       setIsGameOverDialogClosed(false);
+
+      playSound("move");
 
       return result;
     } catch {
