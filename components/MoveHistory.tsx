@@ -39,19 +39,15 @@ export function MoveHistory({
             {rows.map((row) => (
               <div
                 key={row.move}
-                className="grid grid-cols-[45px_1fr_1fr] items-center border-t border-slate-700 px-3 py-2 hover:bg-slate-700/40"
+                className="grid grid-cols-[45px_1fr_1fr] items-center border-t border-slate-700 px-3 py-2"
               >
                 <div className="font-bold text-yellow-400">
                   {row.move}.
                 </div>
 
-                <div className="font-medium text-white">
-                  {row.white}
-                </div>
+                <div>{row.white}</div>
 
-                <div className="font-medium text-white">
-                  {row.black}
-                </div>
+                <div>{row.black}</div>
               </div>
             ))}
 

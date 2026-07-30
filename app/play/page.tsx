@@ -16,45 +16,23 @@ import { MoveHistory } from "@/components/MoveHistory";
 import PromotionDialog from "@/components/PromotionDialog";
 import { getCapturedPieces } from "@/lib/gameUtils";
 import {
-  preloadSounds,
   playSound,
+  preloadSounds,
 } from "@/lib/sounds/soundManager";
 import type {
   BoardOrientation,
   ChessMove,
   GameOverDetails,
   PendingPromotion,
-  PieceType,
   PromotionPiece,
 } from "@/types/chess";
 
-
-const whitePieceSymbols: Record<PieceType, string> = {
-  p: "♙",
-  n: "♘",
-  b: "♗",
-  r: "♖",
-  q: "♕",
-};
-
-const blackPieceSymbols: Record<PieceType, string> = {
-  p: "♟",
-  n: "♞",
-  b: "♝",
-  r: "♜",
-  q: "♛",
-};
-
-const pieceOrder: Record<PieceType, number> = {
-  p: 1,
-  n: 2,
-  b: 3,
-  r: 4,
-  q: 5,
-};
-
 export default function PlayPage() {
   const [game, setGame] = useState(() => new Chess());
+
+  useEffect(() => {
+    preloadSounds();
+  }, []);
 
   const [boardOrientation, setBoardOrientation] =
     useState<BoardOrientation>("white");
@@ -66,9 +44,6 @@ export default function PlayPage() {
     isGameOverDialogClosed,
     setIsGameOverDialogClosed,
   ] = useState(false);
-useEffect(() => {
-  preloadSounds();
-}, []);
 
   function createGameWithHistory(
     movesToKeep?: number,
@@ -104,7 +79,24 @@ useEffect(() => {
       setGame(gameCopy);
       setIsGameOverDialogClosed(false);
 
-      playSound("move");
+      if (gameCopy.isCheckmate()) {
+  playSound("win");
+      } else if (gameCopy.isGameOver()) {
+        playSound("draw");
+      } else if (gameCopy.isCheck()) {
+        playSound("check");
+      } else if (result.promotion) {
+        playSound("promote");
+      } else if (
+        result.flags.includes("k") ||
+        result.flags.includes("q")
+      ) {
+        playSound("castle");
+      } else if (result.captured) {
+        playSound("capture");
+      } else {
+        playSound("move");
+      }
 
       return result;
     } catch {
@@ -279,7 +271,6 @@ useEffect(() => {
       );
     }
   }
-
 
   function getLastMoveSquareStyles() {
     const history = game.history({
@@ -508,13 +499,13 @@ useEffect(() => {
         <div className="grid items-start gap-8 xl:grid-cols-[288px_minmax(0,620px)_288px] xl:justify-center">
           <aside className="flex w-full flex-col gap-6">
             <MoveHistory
-  history={game.history()}
-  result={
-    game.isGameOver()
-      ? gameOverDetails.score
-      : undefined
-  }
-/>
+              history={game.history()}
+              result={
+                game.isGameOver()
+                  ? gameOverDetails.score
+                  : undefined
+              }
+            />
 
             <GameControls
               canUndo={canUndo}
