@@ -1,3 +1,5 @@
+"use client";
+
 type MoveHistoryProps = {
   history: string[];
   result?: string;
@@ -20,13 +22,15 @@ export function MoveHistory({
   return (
     <div className="w-full rounded-xl border border-slate-700 bg-slate-800 p-5 text-white shadow-lg lg:w-72">
       <h2 className="mb-5 text-2xl font-bold text-yellow-400">
-        📜 История на ходовете
+        📜 Move History
       </h2>
 
       {rows.length === 0 ? (
-        <p className="text-slate-400">
-          Все още няма направени ходове.
-        </p>
+        <div className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-5">
+          <p className="text-center text-slate-400">
+            No moves have been played yet.
+          </p>
+        </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-700">
           <div className="grid grid-cols-[45px_1fr_1fr] bg-slate-900 px-3 py-2 text-sm font-bold text-yellow-400">
@@ -39,7 +43,7 @@ export function MoveHistory({
             {rows.map((row) => (
               <div
                 key={row.move}
-                className="grid grid-cols-[45px_1fr_1fr] items-center border-t border-slate-700 px-3 py-2"
+                className="grid grid-cols-[45px_1fr_1fr] border-t border-slate-700 px-3 py-2"
               >
                 <div className="font-bold text-yellow-400">
                   {row.move}.
