@@ -19,6 +19,7 @@ import {
   getLastMoveSquareStyles,
 } from "@/lib/boardStyles";
 import { getGameResult } from "@/lib/gameResult";
+import { createGameWithHistory } from "../../lib/history";
 import {
   playSound,
   preloadSounds,
@@ -49,33 +50,9 @@ export default function PlayPage() {
     setIsGameOverDialogClosed,
   ] = useState(false);
 
-  function createGameWithHistory(
-    movesToKeep?: number,
-  ) {
-    const newGame = new Chess();
-
-    const completeHistory = game.history({
-      verbose: true,
-    });
-
-    const historyToReplay =
-      typeof movesToKeep === "number"
-        ? completeHistory.slice(0, movesToKeep)
-        : completeHistory;
-
-    historyToReplay.forEach((move) => {
-      newGame.move({
-        from: move.from,
-        to: move.to,
-        promotion: move.promotion,
-      });
-    });
-
-    return newGame;
-  }
 
   function makeMove(move: ChessMove) {
-    const gameCopy = createGameWithHistory();
+    const gameCopy = createGameWithHistory(game);
 
     try {
       const result = gameCopy.move(move);
@@ -209,9 +186,10 @@ export default function PlayPage() {
     }
 
     const gameWithoutLastMove =
-      createGameWithHistory(
-        currentHistory.length - 1,
-      );
+  createGameWithHistory(
+    game,
+    currentHistory.length - 1,
+  );
 
     setGame(gameWithoutLastMove);
     setIsGameOverDialogClosed(false);
@@ -276,7 +254,7 @@ export default function PlayPage() {
     }
   }
 
-  
+
 
   function getTurnLabel() {
     if (game.isGameOver()) {
