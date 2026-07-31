@@ -1,54 +1,83 @@
 import { Chess } from "chess.js";
+import type { GameOverDetails } from "@/types/chess";
 
-export type GameResult = {
-  title: string;
-  subtitle: string;
-} | null;
-
-export function getGameResult(game: Chess): GameResult {
+export function getGameResult(
+  game: Chess,
+): GameOverDetails {
   if (!game.isGameOver()) {
-    return null;
+    return {
+      isOpen: false,
+      title: "",
+      subtitle: "",
+      score: "",
+      result: null,
+    };
   }
 
   if (game.isCheckmate()) {
-    const winner = game.turn() === "w" ? "Black" : "White";
+    const whiteWon = game.turn() === "b";
 
     return {
-      title: "🏆 Checkmate!",
-      subtitle: `${winner} wins!`,
+      isOpen: true,
+      title: "Checkmate",
+      subtitle: whiteWon
+        ? "White wins the game."
+        : "Black wins the game.",
+      score: whiteWon ? "1–0" : "0–1",
+      result: whiteWon
+        ? "white-win"
+        : "black-win",
     };
   }
 
   if (game.isStalemate()) {
     return {
-      title: "🤝 Draw",
-      subtitle: "Stalemate",
+      isOpen: true,
+      title: "Stalemate",
+      subtitle:
+        "The player has no legal moves, but the king is not in check.",
+      score: "½–½",
+      result: "draw",
     };
   }
 
   if (game.isThreefoldRepetition()) {
     return {
-      title: "🤝 Draw",
-      subtitle: "Threefold repetition",
+      isOpen: true,
+      title: "Draw",
+      subtitle:
+        "The position was repeated three times.",
+      score: "½–½",
+      result: "draw",
     };
   }
 
   if (game.isInsufficientMaterial()) {
     return {
-      title: "🤝 Draw",
-      subtitle: "Insufficient material",
+      isOpen: true,
+      title: "Draw",
+      subtitle:
+        "There is insufficient material to deliver checkmate.",
+      score: "½–½",
+      result: "draw",
     };
   }
 
   if (game.isDrawByFiftyMoves()) {
     return {
-      title: "🤝 Draw",
-      subtitle: "50-move rule",
+      isOpen: true,
+      title: "Draw",
+      subtitle: "50-move rule.",
+      score: "½–½",
+      result: "draw",
     };
   }
 
   return {
-    title: "🤝 Draw",
-    subtitle: "Draw",
+    isOpen: true,
+    title: "Draw",
+    subtitle: "The game ended in a draw.",
+    score: "½–½",
+    result: "draw",
   };
 }
