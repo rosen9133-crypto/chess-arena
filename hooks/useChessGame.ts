@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { Chess, type Square } from "chess.js";
@@ -30,6 +31,11 @@ export function useChessGame() {
   );
 
   const [
+    currentMoveIndex,
+    setCurrentMoveIndex,
+  ] = useState(0);
+
+  const [
     boardOrientation,
     setBoardOrientation,
   ] = useState<BoardOrientation>("white");
@@ -50,7 +56,25 @@ export function useChessGame() {
     preloadSounds();
   }, []);
 
+  const history = game.history();
+
+  const displayGame = useMemo(
+    () =>
+      createGameWithHistory(
+        game,
+        currentMoveIndex,
+      ),
+    [game, currentMoveIndex],
+  );
+
+  const isViewingLatestMove =
+    currentMoveIndex === history.length;
+
   function makeMove(move: ChessMove) {
+    if (!isViewingLatestMove) {
+      return null;
+    }
+
     const gameCopy =
       createGameWithHistory(game);
 
@@ -58,6 +82,9 @@ export function useChessGame() {
       const result = gameCopy.move(move);
 
       setGame(gameCopy);
+      setCurrentMoveIndex(
+        gameCopy.history().length,
+      );
       setIsGameOverDialogClosed(false);
 
       if (gameCopy.isCheckmate()) {
@@ -115,7 +142,8 @@ export function useChessGame() {
   ) {
     if (
       game.isGameOver() ||
-      pendingPromotion
+      pendingPromotion ||
+      !isViewingLatestMove
     ) {
       return false;
     }
@@ -169,6 +197,7 @@ export function useChessGame() {
 
   function handleNewGame() {
     setGame(new Chess());
+    setCurrentMoveIndex(0);
     setBoardOrientation("white");
     setPendingPromotion(null);
     setIsGameOverDialogClosed(false);
@@ -176,6 +205,10 @@ export function useChessGame() {
 
   function handleUndo() {
     setPendingPromotion(null);
+
+    if (!isViewingLatestMove) {
+      return;
+    }
 
     const currentHistory = game.history({
       verbose: true,
@@ -185,13 +218,17 @@ export function useChessGame() {
       return;
     }
 
+    const movesToKeep =
+      currentHistory.length - 1;
+
     const gameWithoutLastMove =
       createGameWithHistory(
         game,
-        currentHistory.length - 1,
+        movesToKeep,
       );
 
     setGame(gameWithoutLastMove);
+    setCurrentMoveIndex(movesToKeep);
     setIsGameOverDialogClosed(false);
   }
 
@@ -202,6 +239,45 @@ export function useChessGame() {
           ? "black"
           : "white",
     );
+  }
+
+  function goToMove(index: number) {
+    const safeIndex = Math.min(
+      Math.max(index, 0),
+      history.length,
+    );
+
+    setPendingPromotion(null);
+    setCurrentMoveIndex(safeIndex);
+  }
+
+  function goToFirstMove() {
+    goToMove(0);
+  }
+
+  function goToPreviousMove() {
+    setPendingPromotion(null);
+
+    setCurrentMoveIndex(
+      (currentIndex) =>
+        Math.max(currentIndex - 1, 0),
+    );
+  }
+
+  function goToNextMove() {
+    setPendingPromotion(null);
+
+    setCurrentMoveIndex(
+      (currentIndex) =>
+        Math.min(
+          currentIndex + 1,
+          history.length,
+        ),
+    );
+  }
+
+  function goToLastMove() {
+    goToMove(history.length);
   }
 
   function handleCloseGameOverDialog() {
@@ -259,21 +335,21 @@ export function useChessGame() {
   }
 
   function getTurnLabel() {
-    if (game.isGameOver()) {
+    if (displayGame.isGameOver()) {
       return "Finished";
     }
 
-    return game.turn() === "w"
+    return displayGame.turn() === "w"
       ? "White to move"
       : "Black to move";
   }
 
-  const history = game.history();
-
   const isGameOver = game.isGameOver();
 
   const canUndo =
-    history.length > 0 && !isGameOver;
+    history.length > 0 &&
+    !isGameOver &&
+    isViewingLatestMove;
 
   const hasGameStarted =
     history.length > 0;
@@ -281,11 +357,11 @@ export function useChessGame() {
   const {
     whiteCaptured,
     blackCaptured,
-  } = getCapturedPieces(game);
+  } = getCapturedPieces(displayGame);
 
   const squareStyles = {
-    ...getLastMoveSquareStyles(game),
-    ...getCheckSquareStyles(game),
+    ...getLastMoveSquareStyles(displayGame),
+    ...getCheckSquareStyles(displayGame),
   };
 
   const gameOverDetails =
@@ -297,18 +373,22 @@ export function useChessGame() {
 
   const shouldShowPromotionDialog =
     pendingPromotion !== null &&
-    !isGameOver;
+    !isGameOver &&
+    isViewingLatestMove;
 
   const promotionColor =
     pendingPromotion?.color ?? game.turn();
 
-  const moveLabel = isGameOver
-    ? gameOverDetails.score
-    : `Move ${game.moveNumber()}`;
+  const moveLabel = displayGame.isGameOver()
+    ? getGameResult(displayGame).score
+    : `Move ${displayGame.moveNumber()}`;
 
   return {
     game,
+    displayGame,
     history,
+    currentMoveIndex,
+    isViewingLatestMove,
     isGameOver,
     boardOrientation,
     pendingPromotion,
@@ -329,6 +409,11 @@ export function useChessGame() {
     handleNewGame,
     handleUndo,
     handleFlipBoard,
+    goToMove,
+    goToFirstMove,
+    goToPreviousMove,
+    goToNextMove,
+    goToLastMove,
     handleCloseGameOverDialog,
     handleOpenGameOverDialog,
     handleAnalysis,

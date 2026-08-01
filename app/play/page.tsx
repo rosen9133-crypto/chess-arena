@@ -12,8 +12,15 @@ import { useChessGame } from "@/hooks/useChessGame";
 
 export default function PlayPage() {
   const {
-    game,
-    history,
+  game,
+  displayGame,
+  history,
+  currentMoveIndex,
+  goToMove,
+  goToFirstMove,
+  goToPreviousMove,
+  goToNextMove,
+  goToLastMove,
     isGameOver,
     boardOrientation,
     isGameOverDialogClosed,
@@ -74,13 +81,19 @@ export default function PlayPage() {
         <div className="grid items-start gap-8 xl:grid-cols-[288px_minmax(0,620px)_288px] xl:justify-center">
           <aside className="flex w-full flex-col gap-6">
             <MoveHistory
-              history={history}
-              result={
-                isGameOver
-                  ? gameOverDetails.score
-                  : undefined
-              }
-            />
+  history={history}
+  currentMoveIndex={currentMoveIndex}
+  result={
+    isGameOver
+      ? gameOverDetails.score
+      : undefined
+  }
+  onMoveSelect={goToMove}
+  onFirstMove={goToFirstMove}
+  onPreviousMove={goToPreviousMove}
+  onNextMove={goToNextMove}
+  onLastMove={goToLastMove}
+/>
 
             <GameControls
               canUndo={canUndo}
@@ -98,7 +111,7 @@ export default function PlayPage() {
           <section className="w-full">
             <div className="mx-auto w-full max-w-[620px] overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 p-2 shadow-2xl shadow-black/30">
               <Chessboard
-                position={game.fen()}
+                position={displayGame.fen()}
                 onPieceDrop={onDrop}
                 boardOrientation={boardOrientation}
                 customSquareStyles={squareStyles}
@@ -150,7 +163,7 @@ export default function PlayPage() {
           </section>
 
           <aside className="flex w-full flex-col gap-6">
-            <GameInfo game={game} />
+            <GameInfo game={displayGame} />
 
             <CapturedPieces
               whiteCaptured={whiteCaptured}
