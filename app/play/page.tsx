@@ -96,16 +96,15 @@ export default function PlayPage() {
 />
 
             <GameControls
-              canUndo={canUndo}
-              hasGameStarted={hasGameStarted}
-              boardOrientation={boardOrientation}
-              onNewGame={handleNewGame}
-              onUndo={handleUndo}
-              onFlipBoard={handleFlipBoard}
-              onBoardOrientationChange={
-                setBoardOrientation
-              }
-            />
+  canUndo={canUndo}
+  hasGameStarted={hasGameStarted}
+  isGameOver={isGameOver}
+  boardOrientation={boardOrientation}
+  onNewGame={handleNewGame}
+  onUndo={handleUndo}
+  onFlipBoard={handleFlipBoard}
+  onBoardOrientationChange={setBoardOrientation}
+/>
           </aside>
 
           <section className="w-full">

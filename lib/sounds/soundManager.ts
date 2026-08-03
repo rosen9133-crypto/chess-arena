@@ -8,14 +8,19 @@ export type SoundName =
   | "lose"
   | "draw";
 
-const sounds: Partial<Record<SoundName, HTMLAudioElement>> = {};
+const sounds: Partial<
+  Record<SoundName, HTMLAudioElement>
+> = {};
 
 export function preloadSounds() {
   if (typeof window === "undefined") {
     return;
   }
 
-  const soundFiles: Record<SoundName, string> = {
+  const soundFiles: Record<
+    SoundName,
+    string
+  > = {
     move: "/sounds/move.mp3",
     capture: "/sounds/capture.mp3",
     check: "/sounds/check.mp3",
@@ -26,14 +31,20 @@ export function preloadSounds() {
     draw: "/sounds/draw.mp3",
   };
 
-  (Object.keys(soundFiles) as SoundName[]).forEach((name) => {
-    const audio = new Audio(soundFiles[name]);
+  (
+    Object.keys(soundFiles) as SoundName[]
+  ).forEach((name) => {
+    const audio = new Audio(
+      soundFiles[name],
+    );
     audio.preload = "auto";
     sounds[name] = audio;
   });
 }
 
-export function playSound(name: SoundName) {
+export function playSound(
+  name: SoundName,
+) {
   const sound = sounds[name];
 
   if (!sound) {

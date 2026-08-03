@@ -52,7 +52,7 @@ export default function GameOverDialog({
           type="button"
           onClick={onClose}
           aria-label="Close game result"
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-lg text-slate-400 transition hover:border-slate-500 hover:bg-slate-700 hover:text-white"
+          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-lg text-slate-400 transition hover:border-slate-500 hover:bg-slate-700 hover:text-white active:scale-[0.96]"
         >
           ✕
         </button>
@@ -90,7 +90,7 @@ export default function GameOverDialog({
               onClick={onNewGame}
               className="rounded-xl bg-yellow-400 px-4 py-3.5 font-bold text-slate-950 transition hover:bg-yellow-300 active:scale-[0.98]"
             >
-              🎮 New Game
+              🔄 Rematch
             </button>
 
             <button

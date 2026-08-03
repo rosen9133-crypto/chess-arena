@@ -7,6 +7,7 @@ type BoardOrientation = "white" | "black";
 type GameControlsProps = {
   canUndo: boolean;
   hasGameStarted: boolean;
+  isGameOver: boolean;
   boardOrientation: BoardOrientation;
   onNewGame: () => void;
   onUndo: () => void;
@@ -19,6 +20,7 @@ type GameControlsProps = {
 export default function GameControls({
   canUndo,
   hasGameStarted,
+  isGameOver,
   boardOrientation,
   onNewGame,
   onUndo,
@@ -29,7 +31,7 @@ export default function GameControls({
     useState(false);
 
   function handleNewGameClick() {
-    if (hasGameStarted) {
+    if (hasGameStarted && !isGameOver) {
       setIsConfirmOpen(true);
       return;
     }
