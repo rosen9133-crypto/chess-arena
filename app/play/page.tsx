@@ -79,7 +79,7 @@ export default function PlayPage() {
         </header>
 
         <div className="grid items-start gap-8 xl:grid-cols-[288px_minmax(0,620px)_288px] xl:justify-center">
-          <aside className="flex w-full flex-col gap-6">
+          <aside className="sticky top-6 self-start flex w-full flex-col gap-6">
             <MoveHistory
   history={history}
   currentMoveIndex={currentMoveIndex}
@@ -161,14 +161,14 @@ export default function PlayPage() {
               )}
           </section>
 
-          <aside className="flex w-full flex-col gap-6">
-            <GameInfo game={displayGame} />
+          <aside className="sticky top-6 self-start flex w-full flex-col gap-6">
+  <GameInfo game={displayGame} />
 
-            <CapturedPieces
-              whiteCaptured={whiteCaptured}
-              blackCaptured={blackCaptured}
-            />
-          </aside>
+  <CapturedPieces
+    whiteCaptured={whiteCaptured}
+    blackCaptured={blackCaptured}
+  />
+</aside>
         </div>
       </div>
     </main>

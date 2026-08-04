@@ -1,3 +1,4 @@
+import ChessPiece from "@/components/ChessPiece";
 type CapturedPiecesProps = {
   whiteCaptured: string[];
   blackCaptured: string[];
@@ -70,13 +71,13 @@ export default function CapturedPieces({
             </span>
           ) : (
             whiteCaptured.map((piece, index) => (
-              <span
-                key={`${piece}-${index}`}
-                className="text-slate-950 drop-shadow-[0_1px_1px_rgba(255,255,255,0.5)]"
-              >
-                {piece}
-              </span>
-            ))
+  <div key={`${piece}-${index}`}>
+    <ChessPiece
+      piece={piece}
+      size={34}
+    />
+  </div>
+))
           )}
         </div>
       </div>
@@ -103,13 +104,13 @@ export default function CapturedPieces({
             </span>
           ) : (
             blackCaptured.map((piece, index) => (
-              <span
-                key={`${piece}-${index}`}
-                className="text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]"
-              >
-                {piece}
-              </span>
-            ))
+  <div key={`${piece}-${index}`}>
+    <ChessPiece
+      piece={piece}
+      size={34}
+    />
+  </div>
+))
           )}
         </div>
       </div>
