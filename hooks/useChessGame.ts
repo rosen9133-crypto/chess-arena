@@ -1,6 +1,8 @@
 "use client";
 
 import {
+  type Dispatch,
+  type SetStateAction,
   useEffect,
   useMemo,
   useRef,
@@ -88,16 +90,27 @@ export function useChessGame() {
   const [game, setGame] = useState(
     () => new Chess(),
   );
-const [
+
+  const [
   selectedTimeControlId,
-  setSelectedTimeControlId,
+  setSelectedTimeControlIdState,
 ] = useState<string>(DEFAULT_TIME_CONTROL.id);
 
-const selectedTimeControl =
-  TIME_CONTROLS.find(
-    (control) =>
-      control.id === selectedTimeControlId,
-  ) ?? DEFAULT_TIME_CONTROL;
+  const selectedTimeControl =
+    TIME_CONTROLS.find(
+      (control) =>
+        control.id === selectedTimeControlId,
+    ) ?? DEFAULT_TIME_CONTROL;
+
+  const setSelectedTimeControlId: Dispatch<
+    SetStateAction<string>
+  > = (value) => {
+    if (game.history().length > 0) {
+      return;
+    }
+
+    setSelectedTimeControlIdState(value);
+  };
   const [
     currentMoveIndex,
     setCurrentMoveIndex,
@@ -202,6 +215,19 @@ const [blackTime, setBlackTime] =
     };
   }, [activeClock, game, timedOutColor]);
 
+  useEffect(() => {
+    if (game.history().length > 0) {
+      return;
+    }
+
+    const initialTime = getInitialTimeSeconds(
+      selectedTimeControl.initialMinutes,
+    );
+
+    setWhiteTime(initialTime);
+    setBlackTime(initialTime);
+  }, [game, selectedTimeControl.initialMinutes]);
+
   const history = game.history();
 
   const displayGame = useMemo(
@@ -223,7 +249,7 @@ const [blackTime, setBlackTime] =
 
   function addIncrement(color: ChessColor) {
   if (
-    DEFAULT_TIME_CONTROL.incrementSeconds === 0
+    selectedTimeControl.incrementSeconds === 0
   ) {
     return;
   }
@@ -231,12 +257,12 @@ const [blackTime, setBlackTime] =
   if (color === "w") {
     setWhiteTime((currentTime) =>
       currentTime +
-      DEFAULT_TIME_CONTROL.incrementSeconds
+      selectedTimeControl.incrementSeconds
     );
   } else {
     setBlackTime((currentTime) =>
       currentTime +
-      DEFAULT_TIME_CONTROL.incrementSeconds
+      selectedTimeControl.incrementSeconds
     );
   }
 }
@@ -640,10 +666,10 @@ setBlackTime(
     shouldShowPromotionDialog,
     promotionColor,
     moveLabel,
-    timeControl: DEFAULT_TIME_CONTROL,
+    timeControl: selectedTimeControl,
     timeControls: TIME_CONTROLS,
-selectedTimeControlId,
-setSelectedTimeControlId,
+    selectedTimeControlId,
+    setSelectedTimeControlId,
     whiteTime,
     blackTime,
     activeClock,
