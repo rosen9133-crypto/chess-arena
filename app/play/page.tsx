@@ -3,6 +3,8 @@
 import { Chessboard } from "react-chessboard";
 
 import CapturedPieces from "@/components/CapturedPieces";
+import ChessClock from "@/components/ChessClock";
+import TimeControlSelector from "@/components/TimeControlSelector";
 import GameControls from "@/components/GameControls";
 import GameInfo from "@/components/GameInfo";
 import GameOverDialog from "@/components/GameOverDialog";
@@ -12,15 +14,15 @@ import { useChessGame } from "@/hooks/useChessGame";
 
 export default function PlayPage() {
   const {
-  game,
-  displayGame,
-  history,
-  currentMoveIndex,
-  goToMove,
-  goToFirstMove,
-  goToPreviousMove,
-  goToNextMove,
-  goToLastMove,
+    game,
+    displayGame,
+    history,
+    currentMoveIndex,
+    goToMove,
+    goToFirstMove,
+    goToPreviousMove,
+    goToNextMove,
+    goToLastMove,
     isGameOver,
     boardOrientation,
     isGameOverDialogClosed,
@@ -34,6 +36,14 @@ export default function PlayPage() {
     shouldShowPromotionDialog,
     promotionColor,
     moveLabel,
+    timeControl,
+    timeControls,
+selectedTimeControlId,
+setSelectedTimeControlId,
+    whiteTime,
+    blackTime,
+    activeClock,
+    isClockRunning,
     setBoardOrientation,
     onDrop,
     handlePromotionSelect,
@@ -81,30 +91,30 @@ export default function PlayPage() {
         <div className="grid items-start gap-8 xl:grid-cols-[288px_minmax(0,620px)_288px] xl:justify-center">
           <aside className="sticky top-6 self-start flex w-full flex-col gap-6">
             <MoveHistory
-  history={history}
-  currentMoveIndex={currentMoveIndex}
-  result={
-    isGameOver
-      ? gameOverDetails.score
-      : undefined
-  }
-  onMoveSelect={goToMove}
-  onFirstMove={goToFirstMove}
-  onPreviousMove={goToPreviousMove}
-  onNextMove={goToNextMove}
-  onLastMove={goToLastMove}
-/>
+              history={history}
+              currentMoveIndex={currentMoveIndex}
+              result={
+                isGameOver
+                  ? gameOverDetails.score
+                  : undefined
+              }
+              onMoveSelect={goToMove}
+              onFirstMove={goToFirstMove}
+              onPreviousMove={goToPreviousMove}
+              onNextMove={goToNextMove}
+              onLastMove={goToLastMove}
+            />
 
             <GameControls
-  canUndo={canUndo}
-  hasGameStarted={hasGameStarted}
-  isGameOver={isGameOver}
-  boardOrientation={boardOrientation}
-  onNewGame={handleNewGame}
-  onUndo={handleUndo}
-  onFlipBoard={handleFlipBoard}
-  onBoardOrientationChange={setBoardOrientation}
-/>
+              canUndo={canUndo}
+              hasGameStarted={hasGameStarted}
+              isGameOver={isGameOver}
+              boardOrientation={boardOrientation}
+              onNewGame={handleNewGame}
+              onUndo={handleUndo}
+              onFlipBoard={handleFlipBoard}
+              onBoardOrientationChange={setBoardOrientation}
+            />
           </aside>
 
           <section className="w-full">
@@ -162,13 +172,24 @@ export default function PlayPage() {
           </section>
 
           <aside className="sticky top-6 self-start flex w-full flex-col gap-6">
-  <GameInfo game={displayGame} />
+            <ChessClock
+              whiteTime={whiteTime}
+              blackTime={blackTime}
+              activeClock={activeClock}
+              isClockRunning={isClockRunning}
+            />
+<TimeControlSelector
+  controls={timeControls}
+  selectedControlId={selectedTimeControlId}
+  onSelect={setSelectedTimeControlId}
+/>
+            <GameInfo game={displayGame} />
 
-  <CapturedPieces
-    whiteCaptured={whiteCaptured}
-    blackCaptured={blackCaptured}
-  />
-</aside>
+            <CapturedPieces
+              whiteCaptured={whiteCaptured}
+              blackCaptured={blackCaptured}
+            />
+          </aside>
         </div>
       </div>
     </main>

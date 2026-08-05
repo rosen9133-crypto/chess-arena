@@ -3,6 +3,7 @@
 import {
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Chess, type Square } from "chess.js";
@@ -25,11 +26,78 @@ import type {
   PromotionPiece,
 } from "@/types/chess";
 
+export const TIME_CONTROLS = [
+  {
+    id: "1+0",
+    label: "1+0",
+    category: "Bullet",
+    initialMinutes: 1,
+    incrementSeconds: 0,
+  },
+  {
+    id: "2+1",
+    label: "2+1",
+    category: "Bullet",
+    initialMinutes: 2,
+    incrementSeconds: 1,
+  },
+  {
+    id: "3+2",
+    label: "3+2",
+    category: "Blitz",
+    initialMinutes: 3,
+    incrementSeconds: 2,
+  },
+  {
+    id: "5+0",
+    label: "5+0",
+    category: "Blitz",
+    initialMinutes: 5,
+    incrementSeconds: 0,
+  },
+  {
+    id: "10+0",
+    label: "10+0",
+    category: "Rapid",
+    initialMinutes: 10,
+    incrementSeconds: 0,
+  },
+  {
+    id: "15+10",
+    label: "15+10",
+    category: "Rapid",
+    initialMinutes: 15,
+    incrementSeconds: 10,
+  },
+] as const;
+
+const DEFAULT_TIME_CONTROL =
+  TIME_CONTROLS[4];
+
+function getInitialTimeSeconds(
+  initialMinutes: number,
+) {
+  return initialMinutes * 60;
+}
+
+const CLOCK_UPDATE_INTERVAL_MS = 250;
+
+type ChessColor = "w" | "b";
+
 export function useChessGame() {
   const [game, setGame] = useState(
     () => new Chess(),
   );
+const [
+  selectedTimeControlId,
+  setSelectedTimeControlId,
+] = useState<string>(DEFAULT_TIME_CONTROL.id);
 
+const selectedTimeControl =
+  TIME_CONTROLS.find(
+    (control) =>
+      control.id === selectedTimeControlId,
+  ) ?? DEFAULT_TIME_CONTROL;
   const [
     currentMoveIndex,
     setCurrentMoveIndex,
@@ -52,9 +120,87 @@ export function useChessGame() {
     setIsGameOverDialogClosed,
   ] = useState(false);
 
+  const [whiteTime, setWhiteTime] =
+  useState(() =>
+    getInitialTimeSeconds(
+      selectedTimeControl.initialMinutes,
+    ),
+  );
+
+const [blackTime, setBlackTime] =
+  useState(() =>
+    getInitialTimeSeconds(
+      selectedTimeControl.initialMinutes,
+    ),
+  );
+
+  const [activeClock, setActiveClock] =
+    useState<ChessColor | null>(null);
+
+  const [
+    timedOutColor,
+    setTimedOutColor,
+  ] = useState<ChessColor | null>(null);
+
+  const lastClockUpdateRef = useRef(
+    Date.now(),
+  );
+
   useEffect(() => {
     preloadSounds();
   }, []);
+
+  useEffect(() => {
+    if (
+      activeClock === null ||
+      timedOutColor !== null ||
+      game.isGameOver()
+    ) {
+      return;
+    }
+
+    lastClockUpdateRef.current = Date.now();
+
+    const intervalId = window.setInterval(
+      () => {
+        const now = Date.now();
+        const elapsedSeconds =
+          (now - lastClockUpdateRef.current) /
+          1000;
+
+        lastClockUpdateRef.current = now;
+
+        const updateActiveTime = (
+          currentTime: number,
+        ) => {
+          const nextTime = Math.max(
+            currentTime - elapsedSeconds,
+            0,
+          );
+
+          if (nextTime === 0) {
+            setTimedOutColor(activeClock);
+            setActiveClock(null);
+            setPendingPromotion(null);
+            setIsGameOverDialogClosed(false);
+          }
+
+          return nextTime;
+        };
+
+        if (activeClock === "w") {
+          setWhiteTime(updateActiveTime);
+        } else {
+          setBlackTime(updateActiveTime);
+        }
+      },
+      CLOCK_UPDATE_INTERVAL_MS,
+    );
+
+    return () => {
+      window.clearInterval(intervalId);
+    };
+  }, [activeClock, game, timedOutColor]);
 
   const history = game.history();
 
@@ -70,11 +216,40 @@ export function useChessGame() {
   const isViewingLatestMove =
     currentMoveIndex === history.length;
 
+  const chessGameOver = game.isGameOver();
+
+  const isGameOver =
+    chessGameOver || timedOutColor !== null;
+
+  function addIncrement(color: ChessColor) {
+  if (
+    DEFAULT_TIME_CONTROL.incrementSeconds === 0
+  ) {
+    return;
+  }
+
+  if (color === "w") {
+    setWhiteTime((currentTime) =>
+      currentTime +
+      DEFAULT_TIME_CONTROL.incrementSeconds
+    );
+  } else {
+    setBlackTime((currentTime) =>
+      currentTime +
+      DEFAULT_TIME_CONTROL.incrementSeconds
+    );
+  }
+}
+
   function makeMove(move: ChessMove) {
-    if (!isViewingLatestMove) {
+    if (
+      !isViewingLatestMove ||
+      timedOutColor !== null
+    ) {
       return null;
     }
 
+    const movingColor = game.turn();
     const gameCopy =
       createGameWithHistory(game);
 
@@ -86,6 +261,15 @@ export function useChessGame() {
         gameCopy.history().length,
       );
       setIsGameOverDialogClosed(false);
+
+      addIncrement(movingColor);
+
+      if (gameCopy.isGameOver()) {
+        setActiveClock(null);
+      } else {
+        lastClockUpdateRef.current = Date.now();
+        setActiveClock(gameCopy.turn());
+      }
 
       if (gameCopy.isCheckmate()) {
         playSound("win");
@@ -141,7 +325,7 @@ export function useChessGame() {
     targetSquare: string,
   ) {
     if (
-      game.isGameOver() ||
+      isGameOver ||
       pendingPromotion ||
       !isViewingLatestMove
     ) {
@@ -201,12 +385,29 @@ export function useChessGame() {
     setBoardOrientation("white");
     setPendingPromotion(null);
     setIsGameOverDialogClosed(false);
+    setWhiteTime(
+  getInitialTimeSeconds(
+    selectedTimeControl.initialMinutes,
+  ),
+);
+
+setBlackTime(
+  getInitialTimeSeconds(
+    selectedTimeControl.initialMinutes,
+  ),
+);
+    setActiveClock(null);
+    setTimedOutColor(null);
+    lastClockUpdateRef.current = Date.now();
   }
 
   function handleUndo() {
     setPendingPromotion(null);
 
-    if (!isViewingLatestMove) {
+    if (
+      !isViewingLatestMove ||
+      timedOutColor !== null
+    ) {
       return;
     }
 
@@ -230,6 +431,15 @@ export function useChessGame() {
     setGame(gameWithoutLastMove);
     setCurrentMoveIndex(movesToKeep);
     setIsGameOverDialogClosed(false);
+    lastClockUpdateRef.current = Date.now();
+
+    if (movesToKeep === 0) {
+      setActiveClock(null);
+    } else {
+      setActiveClock(
+        gameWithoutLastMove.turn(),
+      );
+    }
   }
 
   function handleFlipBoard() {
@@ -335,7 +545,7 @@ export function useChessGame() {
   }
 
   function getTurnLabel() {
-    if (displayGame.isGameOver()) {
+    if (isGameOver) {
       return "Finished";
     }
 
@@ -344,8 +554,6 @@ export function useChessGame() {
       : "Black to move";
   }
 
-  const isGameOver = game.isGameOver();
-
   const canUndo =
     history.length > 0 &&
     !isGameOver &&
@@ -353,6 +561,9 @@ export function useChessGame() {
 
   const hasGameStarted =
     history.length > 0;
+
+  const isClockRunning =
+    activeClock !== null && !isGameOver;
 
   const {
     whiteCaptured,
@@ -364,8 +575,33 @@ export function useChessGame() {
     ...getCheckSquareStyles(displayGame),
   };
 
-  const gameOverDetails =
+  const standardGameOverDetails =
     getGameResult(game);
+
+  const timeoutGameOverDetails =
+    timedOutColor === "w"
+      ? {
+          isOpen: true,
+          title: "Black wins on time",
+          subtitle:
+            "White ran out of time.",
+          score: "0–1",
+          result: "black-win" as const,
+        }
+      : timedOutColor === "b"
+        ? {
+            isOpen: true,
+            title: "White wins on time",
+            subtitle:
+              "Black ran out of time.",
+            score: "1–0",
+            result: "white-win" as const,
+          }
+        : null;
+
+  const gameOverDetails =
+    timeoutGameOverDetails ??
+    standardGameOverDetails;
 
   const shouldShowGameOverDialog =
     gameOverDetails.isOpen &&
@@ -379,9 +615,10 @@ export function useChessGame() {
   const promotionColor =
     pendingPromotion?.color ?? game.turn();
 
-  const moveLabel = displayGame.isGameOver()
-    ? getGameResult(displayGame).score
-    : `Move ${displayGame.moveNumber()}`;
+  const moveLabel =
+    isViewingLatestMove && isGameOver
+      ? gameOverDetails.score
+      : `Move ${displayGame.moveNumber()}`;
 
   return {
     game,
@@ -403,6 +640,15 @@ export function useChessGame() {
     shouldShowPromotionDialog,
     promotionColor,
     moveLabel,
+    timeControl: DEFAULT_TIME_CONTROL,
+    timeControls: TIME_CONTROLS,
+selectedTimeControlId,
+setSelectedTimeControlId,
+    whiteTime,
+    blackTime,
+    activeClock,
+    timedOutColor,
+    isClockRunning,
     setBoardOrientation,
     onDrop,
     handlePromotionSelect,
