@@ -276,8 +276,10 @@ const [blackTime, setBlackTime] =
     }
 
     const movingColor = game.turn();
-    const gameCopy =
-      createGameWithHistory(game);
+
+const gameCopy = isViewingLatestMove
+  ? createGameWithHistory(game)
+  : createGameWithHistory(game, currentMoveIndex);
 
     try {
       const result = gameCopy.move(move);
