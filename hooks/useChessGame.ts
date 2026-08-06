@@ -431,41 +431,16 @@ setBlackTime(
     setPendingPromotion(null);
 
     if (
-      !isViewingLatestMove ||
-      timedOutColor !== null
+      timedOutColor !== null ||
+      currentMoveIndex === 0
     ) {
       return;
     }
 
-    const currentHistory = game.history({
-      verbose: true,
-    });
-
-    if (currentHistory.length === 0) {
-      return;
-    }
-
-    const movesToKeep =
-      currentHistory.length - 1;
-
-    const gameWithoutLastMove =
-      createGameWithHistory(
-        game,
-        movesToKeep,
-      );
-
-    setGame(gameWithoutLastMove);
-    setCurrentMoveIndex(movesToKeep);
-    setIsGameOverDialogClosed(false);
-    lastClockUpdateRef.current = Date.now();
-
-    if (movesToKeep === 0) {
-      setActiveClock(null);
-    } else {
-      setActiveClock(
-        gameWithoutLastMove.turn(),
-      );
-    }
+    setCurrentMoveIndex(
+      (currentIndex) =>
+        Math.max(currentIndex - 1, 0),
+    );
   }
 
   function handleFlipBoard() {
@@ -581,9 +556,8 @@ setBlackTime(
   }
 
   const canUndo =
-    history.length > 0 &&
-    !isGameOver &&
-    isViewingLatestMove;
+    currentMoveIndex > 0 &&
+    !isGameOver;
 
   const hasGameStarted =
     history.length > 0;
