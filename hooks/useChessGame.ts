@@ -268,18 +268,18 @@ const [blackTime, setBlackTime] =
 }
 
   function makeMove(move: ChessMove) {
-    if (
-      !isViewingLatestMove ||
-      timedOutColor !== null
-    ) {
+    if (timedOutColor !== null) {
       return null;
     }
 
-    const movingColor = game.turn();
+    const gameCopy = isViewingLatestMove
+      ? createGameWithHistory(game)
+      : createGameWithHistory(
+          game,
+          currentMoveIndex,
+        );
 
-const gameCopy = isViewingLatestMove
-  ? createGameWithHistory(game)
-  : createGameWithHistory(game, currentMoveIndex);
+    const movingColor = gameCopy.turn();
 
     try {
       const result = gameCopy.move(move);
@@ -328,7 +328,7 @@ const gameCopy = isViewingLatestMove
     sourceSquare: string,
     targetSquare: string,
   ) {
-    const piece = game.get(
+    const piece = displayGame.get(
       sourceSquare as Square,
     );
 
@@ -336,7 +336,7 @@ const gameCopy = isViewingLatestMove
       return false;
     }
 
-    const legalMoves = game.moves({
+    const legalMoves = displayGame.moves({
       square: sourceSquare as Square,
       verbose: true,
     });
@@ -353,9 +353,9 @@ const gameCopy = isViewingLatestMove
     targetSquare: string,
   ) {
     if (
-      isGameOver ||
-      pendingPromotion ||
-      !isViewingLatestMove
+      displayGame.isGameOver() ||
+      timedOutColor !== null ||
+      pendingPromotion
     ) {
       return false;
     }
@@ -366,7 +366,7 @@ const gameCopy = isViewingLatestMove
         targetSquare,
       )
     ) {
-      const pawn = game.get(
+      const pawn = displayGame.get(
         sourceSquare as Square,
       );
 
@@ -611,11 +611,11 @@ setBlackTime(
 
   const shouldShowPromotionDialog =
     pendingPromotion !== null &&
-    !isGameOver &&
-    isViewingLatestMove;
+    !displayGame.isGameOver() &&
+    timedOutColor === null;
 
   const promotionColor =
-    pendingPromotion?.color ?? game.turn();
+    pendingPromotion?.color ?? displayGame.turn();
 
   const moveLabel =
     isViewingLatestMove && isGameOver
