@@ -40,7 +40,7 @@ function ClockRow({
       }`}
     >
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-sm text-slate-400">
+        <span className="font-semibold">
           {icon} {label}
         </span>
 
@@ -51,7 +51,15 @@ function ClockRow({
         )}
       </div>
 
-      <p className="text-center font-mono text-4xl font-bold text-white">
+      <p
+        className={`text-center font-mono text-4xl font-bold ${
+          time <= 10
+            ? "text-red-400"
+            : time < 60
+            ? "text-yellow-400"
+            : "text-white"
+        }`}
+      >
         {formatTime(time)}
       </p>
     </div>
@@ -65,8 +73,8 @@ export default function ChessClock({
   isClockRunning,
 }: ChessClockProps) {
   return (
-    <div className="w-72 rounded-xl bg-slate-800 p-5 shadow-lg">
-      <h2 className="mb-5 text-2xl font-bold text-yellow-400">
+    <div className="rounded-xl border border-slate-700 bg-slate-800 p-4">
+      <h2 className="mb-4 text-center text-lg font-bold">
         ⏱ Chess Clock
       </h2>
 

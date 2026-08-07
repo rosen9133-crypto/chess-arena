@@ -8,7 +8,10 @@ export type SoundName =
   | "promote"
   | "win"
   | "lose"
-  | "draw";
+  | "draw"
+  | "clock-warning"
+  | "clock-tick"
+  | "clock-timeout";
 
 const sounds: Partial<Record<SoundName, Howl>> = {};
 
@@ -60,6 +63,21 @@ export function preloadSounds() {
     src: ["/sounds/draw.mp3"],
     preload: true,
   });
+
+  sounds["clock-warning"] = new Howl({
+    src: ["/sounds/clock-warning.mp3"],
+    preload: true,
+  });
+
+  sounds["clock-tick"] = new Howl({
+    src: ["/sounds/clock-tick.mp3"],
+    preload: true,
+  });
+
+  sounds["clock-timeout"] = new Howl({
+    src: ["/sounds/clock-timeout.mp3"],
+    preload: true,
+  });
 }
 
 export function playSound(name: SoundName) {
@@ -71,4 +89,8 @@ export function playSound(name: SoundName) {
 
   sound.stop();
   sound.play();
+}
+
+export function stopSound(name: SoundName) {
+  sounds[name]?.stop();
 }

@@ -3,6 +3,7 @@
 import {
   type Dispatch,
   type SetStateAction,
+  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -20,6 +21,7 @@ import { createGameWithHistory } from "@/lib/history";
 import {
   playSound,
   preloadSounds,
+  stopSound,
 } from "@/lib/sounds/soundManager";
 import type {
   BoardOrientation,
@@ -159,8 +161,28 @@ const [blackTime, setBlackTime] =
     Date.now(),
   );
 
+  const clockWarningPlayedRef = useRef<
+    Record<ChessColor, boolean>
+  >({
+    w: false,
+    b: false,
+  });
+
+  const clockTickingColorRef = useRef<
+    ChessColor | null
+  >(null);
+
+  const stopClockTick = useCallback(() => {
+    stopSound("clock-tick");
+    clockTickingColorRef.current = null;
+  }, []);
+
   useEffect(() => {
     preloadSounds();
+
+    return () => {
+      stopSound("clock-tick");
+    };
   }, []);
 
   useEffect(() => {
@@ -214,6 +236,76 @@ const [blackTime, setBlackTime] =
       window.clearInterval(intervalId);
     };
   }, [activeClock, game, timedOutColor]);
+
+  useEffect(() => {
+    if (
+      activeClock === null ||
+      timedOutColor !== null ||
+      game.isGameOver()
+    ) {
+      stopClockTick();
+      return;
+    }
+
+    const activeTime =
+      activeClock === "w"
+        ? whiteTime
+        : blackTime;
+
+    const displayedSeconds = Math.max(
+      0,
+      Math.ceil(activeTime),
+    );
+
+    if (
+      displayedSeconds <= 59 &&
+      !clockWarningPlayedRef.current[
+        activeClock
+      ]
+    ) {
+      clockWarningPlayedRef.current[
+        activeClock
+      ] = true;
+      playSound("clock-warning");
+    }
+
+    if (
+      displayedSeconds <= 10 &&
+      displayedSeconds > 0
+    ) {
+      if (
+        clockTickingColorRef.current !==
+        activeClock
+      ) {
+        stopClockTick();
+        playSound("clock-tick");
+        clockTickingColorRef.current =
+          activeClock;
+      }
+
+      return;
+    }
+
+    if (clockTickingColorRef.current !== null) {
+      stopClockTick();
+    }
+  }, [
+    activeClock,
+    blackTime,
+    game,
+    timedOutColor,
+    whiteTime,
+    stopClockTick,
+  ]);
+
+  useEffect(() => {
+    if (timedOutColor === null) {
+      return;
+    }
+
+    stopClockTick();
+    playSound("clock-timeout");
+  }, [timedOutColor, stopClockTick]);
 
   useEffect(() => {
     if (game.history().length > 0) {
@@ -283,6 +375,8 @@ const [blackTime, setBlackTime] =
 
     try {
       const result = gameCopy.move(move);
+
+      stopClockTick();
 
       setGame(gameCopy);
       setCurrentMoveIndex(
@@ -408,6 +502,14 @@ const [blackTime, setBlackTime] =
   }
 
   function handleNewGame() {
+    stopClockTick();
+    stopSound("clock-warning");
+    stopSound("clock-timeout");
+    clockWarningPlayedRef.current = {
+      w: false,
+      b: false,
+    };
+
     setGame(new Chess());
     setCurrentMoveIndex(0);
     setBoardOrientation("white");
