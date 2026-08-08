@@ -18,6 +18,7 @@ import {
 import { getGameResult } from "@/lib/gameResult";
 import { getCapturedPieces } from "@/lib/gameUtils";
 import { createGameWithHistory } from "@/lib/history";
+import { StockfishEngine } from "@/lib/stockfish/stockfishEngine";
 import {
   playSound,
   preloadSounds,
@@ -172,10 +173,22 @@ const [blackTime, setBlackTime] =
     ChessColor | null
   >(null);
 
+  const stockfishRef =
+    useRef<StockfishEngine | null>(null);
+
+  const stockfishThinkingRef =
+    useRef(false);
+
+  const latestGameRef = useRef(game);
+
   const stopClockTick = useCallback(() => {
     stopSound("clock-tick");
     clockTickingColorRef.current = null;
   }, []);
+
+  useEffect(() => {
+    latestGameRef.current = game;
+  }, [game]);
 
   useEffect(() => {
     preloadSounds();
@@ -184,6 +197,130 @@ const [blackTime, setBlackTime] =
       stopSound("clock-tick");
     };
   }, []);
+
+  useEffect(() => {
+    const engine = new StockfishEngine();
+
+    stockfishRef.current = engine;
+    engine.start();
+
+    const unsubscribe = engine.subscribe(
+      (message) => {
+        if (!message.startsWith("bestmove ")) {
+          return;
+        }
+
+        stockfishThinkingRef.current = false;
+
+        const bestMove = message.split(" ")[1];
+
+        if (
+          !bestMove ||
+          bestMove === "(none)"
+        ) {
+          return;
+        }
+
+        const currentGame = latestGameRef.current;
+
+        if (
+          currentGame.turn() !== "b" ||
+          currentGame.isGameOver()
+        ) {
+          return;
+        }
+
+        const from = bestMove.slice(0, 2);
+        const to = bestMove.slice(2, 4);
+        const promotion =
+          bestMove.length > 4
+            ? (bestMove[4] as PromotionPiece)
+            : undefined;
+
+        const gameCopy =
+          createGameWithHistory(currentGame);
+
+        try {
+          const result = gameCopy.move({
+            from,
+            to,
+            ...(promotion
+              ? { promotion }
+              : {}),
+          });
+
+          stopClockTick();
+
+          latestGameRef.current = gameCopy;
+          setGame(gameCopy);
+          setCurrentMoveIndex(
+            gameCopy.history().length,
+          );
+          setIsGameOverDialogClosed(false);
+
+          if (
+            selectedTimeControl.incrementSeconds >
+            0
+          ) {
+            setBlackTime((currentTime) =>
+              currentTime +
+              selectedTimeControl.incrementSeconds
+            );
+          }
+
+          if (gameCopy.isGameOver()) {
+            setActiveClock(null);
+          } else {
+            lastClockUpdateRef.current =
+              Date.now();
+            setActiveClock(gameCopy.turn());
+          }
+
+          if (gameCopy.isCheckmate()) {
+            playSound("win");
+          } else if (gameCopy.isGameOver()) {
+            playSound("draw");
+          } else if (gameCopy.isCheck()) {
+            playSound("check");
+          } else if (result.promotion) {
+            playSound("promote");
+          } else if (
+            result.flags.includes("k") ||
+            result.flags.includes("q")
+          ) {
+            playSound("castle");
+          } else if (result.captured) {
+            playSound("capture");
+          } else {
+            playSound("move");
+          }
+        } catch (error) {
+          console.error(
+            "Stockfish returned an invalid move:",
+            bestMove,
+            error,
+          );
+        }
+      },
+    );
+
+    engine.send("uci");
+    engine.send("isready");
+
+    return () => {
+      unsubscribe();
+      engine.stop();
+
+      if (stockfishRef.current === engine) {
+        stockfishRef.current = null;
+      }
+
+      stockfishThinkingRef.current = false;
+    };
+  }, [
+    selectedTimeControl.incrementSeconds,
+    stopClockTick,
+  ]);
 
   useEffect(() => {
     if (
@@ -412,6 +549,22 @@ const [blackTime, setBlackTime] =
         playSound("move");
       }
 
+      latestGameRef.current = gameCopy;
+
+      if (
+        movingColor === "w" &&
+        !gameCopy.isGameOver() &&
+        stockfishRef.current
+      ) {
+        stockfishThinkingRef.current = true;
+        stockfishRef.current.send(
+          `position fen ${gameCopy.fen()}`,
+        );
+        stockfishRef.current.send(
+          "go movetime 500",
+        );
+      }
+
       return result;
     } catch {
       return null;
@@ -449,7 +602,9 @@ const [blackTime, setBlackTime] =
     if (
       displayGame.isGameOver() ||
       timedOutColor !== null ||
-      pendingPromotion
+      pendingPromotion ||
+      displayGame.turn() !== "w" ||
+      stockfishThinkingRef.current
     ) {
       return false;
     }
@@ -502,6 +657,11 @@ const [blackTime, setBlackTime] =
   }
 
   function handleNewGame() {
+    stockfishThinkingRef.current = false;
+    stockfishRef.current?.send("stop");
+    stockfishRef.current?.send("ucinewgame");
+    stockfishRef.current?.send("isready");
+
     stopClockTick();
     stopSound("clock-warning");
     stopSound("clock-timeout");

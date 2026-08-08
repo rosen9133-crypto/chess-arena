@@ -86,6 +86,7 @@ setSelectedTimeControlId,
           <p className="mt-3 text-slate-400">
             Play, improve your skills and conquer the arena.
           </p>
+
         </header>
 
         <div className="grid items-start gap-8 xl:grid-cols-[288px_minmax(0,620px)_288px] xl:justify-center">
