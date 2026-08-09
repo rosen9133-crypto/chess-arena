@@ -164,6 +164,11 @@ const [blackTime, setBlackTime] =
     setTimedOutColor,
   ] = useState<ChessColor | null>(null);
 
+  const [
+    resignedColor,
+    setResignedColor,
+  ] = useState<ChessColor | null>(null);
+
   const lastClockUpdateRef = useRef(
     Date.now(),
   );
@@ -499,7 +504,9 @@ const [blackTime, setBlackTime] =
   const chessGameOver = game.isGameOver();
 
   const isGameOver =
-    chessGameOver || timedOutColor !== null;
+    chessGameOver ||
+    timedOutColor !== null ||
+    resignedColor !== null;
 
   function addIncrement(color: ChessColor) {
   if (
@@ -699,6 +706,29 @@ const [blackTime, setBlackTime] =
     setPendingPromotion(null);
   }
 
+  function handleResign() {
+    if (
+      game.history().length === 0 ||
+      isGameOver
+    ) {
+      return;
+    }
+
+    stockfishThinkingRef.current = false;
+    stockfishRef.current?.send("stop");
+
+    stopClockTick();
+    stopSound("clock-warning");
+    stopSound("clock-timeout");
+
+    setPendingPromotion(null);
+    setActiveClock(null);
+    setResignedColor("w");
+    setIsGameOverDialogClosed(false);
+
+    playSound("lose");
+  }
+
   function handleNewGame() {
     stockfishThinkingRef.current = false;
     stockfishRef.current?.send("stop");
@@ -731,6 +761,7 @@ setBlackTime(
 );
     setActiveClock(null);
     setTimedOutColor(null);
+    setResignedColor(null);
     lastClockUpdateRef.current = Date.now();
   }
 
@@ -906,7 +937,27 @@ setBlackTime(
           }
         : null;
 
+  const resignationGameOverDetails =
+    resignedColor === "w"
+      ? {
+          isOpen: true,
+          title: "Black wins by resignation",
+          subtitle: "White resigned the game.",
+          score: "0–1",
+          result: "black-win" as const,
+        }
+      : resignedColor === "b"
+        ? {
+            isOpen: true,
+            title: "White wins by resignation",
+            subtitle: "Black resigned the game.",
+            score: "1–0",
+            result: "white-win" as const,
+          }
+        : null;
+
   const gameOverDetails =
+    resignationGameOverDetails ??
     timeoutGameOverDetails ??
     standardGameOverDetails;
 
@@ -964,6 +1015,7 @@ setBlackTime(
     onDrop,
     handlePromotionSelect,
     handleNewGame,
+    handleResign,
     handleUndo,
     handleFlipBoard,
     goToMove,

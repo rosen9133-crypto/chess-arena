@@ -10,6 +10,7 @@ type GameControlsProps = {
   isGameOver: boolean;
   boardOrientation: BoardOrientation;
   onNewGame: () => void;
+  onResign: () => void;
   onUndo: () => void;
   onFlipBoard: () => void;
   onBoardOrientationChange: (
@@ -23,12 +24,18 @@ export default function GameControls({
   isGameOver,
   boardOrientation,
   onNewGame,
+  onResign,
   onUndo,
   onFlipBoard,
   onBoardOrientationChange,
 }: GameControlsProps) {
   const [isConfirmOpen, setIsConfirmOpen] =
     useState(false);
+
+  const [
+    isResignConfirmOpen,
+    setIsResignConfirmOpen,
+  ] = useState(false);
 
   function handleNewGameClick() {
     if (hasGameStarted && !isGameOver) {
@@ -48,10 +55,27 @@ export default function GameControls({
     setIsConfirmOpen(false);
   }
 
+  function handleResignClick() {
+    if (!hasGameStarted || isGameOver) {
+      return;
+    }
+
+    setIsResignConfirmOpen(true);
+  }
+
+  function handleConfirmResign() {
+    setIsResignConfirmOpen(false);
+    onResign();
+  }
+
+  function handleCancelResign() {
+    setIsResignConfirmOpen(false);
+  }
+
   return (
     <>
-      <div className="w-full rounded-xl border border-slate-700 bg-slate-800 p-5 text-white shadow-lg lg:w-72">
-        <h2 className="mb-5 text-2xl font-bold text-yellow-400">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4 shadow-lg">
+        <h2 className="mb-4 text-lg font-bold text-white">
           ⚙️ Game Controls
         </h2>
 
@@ -62,6 +86,15 @@ export default function GameControls({
             className="w-full rounded-lg bg-yellow-400 px-4 py-3 font-bold text-slate-950 transition hover:bg-yellow-300 active:scale-[0.98]"
           >
             🆕 New Game
+          </button>
+
+          <button
+            type="button"
+            onClick={handleResignClick}
+            disabled={!hasGameStarted || isGameOver}
+            className="w-full rounded-lg border border-red-500/50 bg-red-500/10 px-4 py-3 font-semibold text-red-300 transition hover:border-red-400 hover:bg-red-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-red-500/50 disabled:hover:bg-red-500/10"
+          >
+            🏳️ Resign
           </button>
 
           <button
@@ -93,13 +126,9 @@ export default function GameControls({
                 type="radio"
                 name="board-orientation"
                 value="white"
-                checked={
-                  boardOrientation === "white"
-                }
+                checked={boardOrientation === "white"}
                 onChange={() =>
-                  onBoardOrientationChange(
-                    "white",
-                  )
+                  onBoardOrientationChange("white")
                 }
                 className="h-4 w-4 accent-yellow-400"
               />
@@ -114,13 +143,9 @@ export default function GameControls({
                 type="radio"
                 name="board-orientation"
                 value="black"
-                checked={
-                  boardOrientation === "black"
-                }
+                checked={boardOrientation === "black"}
                 onChange={() =>
-                  onBoardOrientationChange(
-                    "black",
-                  )
+                  onBoardOrientationChange("black")
                 }
                 className="h-4 w-4 accent-yellow-400"
               />
@@ -186,6 +211,66 @@ export default function GameControls({
                 className="rounded-lg bg-yellow-400 px-5 py-2.5 font-bold text-slate-950 transition hover:bg-yellow-300 active:scale-[0.98]"
               >
                 Start New Game
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isResignConfirmOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={handleCancelResign}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="resign-title"
+            aria-describedby="resign-description"
+            onMouseDown={(event) =>
+              event.stopPropagation()
+            }
+            className="w-full max-w-md rounded-2xl border border-red-500/30 bg-slate-900 p-6 text-white shadow-2xl shadow-black/50"
+          >
+            <div className="mb-5 flex items-start gap-4">
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-red-500/15 text-2xl">
+                🏳️
+              </div>
+
+              <div>
+                <h3
+                  id="resign-title"
+                  className="text-2xl font-bold text-red-300"
+                >
+                  Resign the game?
+                </h3>
+
+                <p
+                  id="resign-description"
+                  className="mt-2 text-slate-300"
+                >
+                  Resigning will end the game and give
+                  the win to your opponent.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleCancelResign}
+                className="rounded-lg border border-slate-600 bg-slate-800 px-5 py-2.5 font-semibold text-white transition hover:bg-slate-700 active:scale-[0.98]"
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmResign}
+                className="rounded-lg bg-red-500 px-5 py-2.5 font-bold text-white transition hover:bg-red-400 active:scale-[0.98]"
+              >
+                Resign
               </button>
             </div>
           </div>

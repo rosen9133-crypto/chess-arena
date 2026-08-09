@@ -53,6 +53,7 @@ export default function PlayPage() {
     onDrop,
     handlePromotionSelect,
     handleNewGame,
+    handleResign,
     handleUndo,
     handleFlipBoard,
     handleCloseGameOverDialog,
@@ -117,6 +118,7 @@ export default function PlayPage() {
               isGameOver={isGameOver}
               boardOrientation={boardOrientation}
               onNewGame={handleNewGame}
+              onResign={handleResign}
               onUndo={handleUndo}
               onFlipBoard={handleFlipBoard}
               onBoardOrientationChange={setBoardOrientation}
