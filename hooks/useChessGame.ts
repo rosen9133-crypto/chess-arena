@@ -20,6 +20,12 @@ import { getCapturedPieces } from "@/lib/gameUtils";
 import { createGameWithHistory } from "@/lib/history";
 import { StockfishEngine } from "@/lib/stockfish/stockfishEngine";
 import {
+  DEFAULT_STOCKFISH_DIFFICULTY_ID,
+  getStockfishDifficulty,
+  STOCKFISH_DIFFICULTIES,
+  type StockfishDifficultyId,
+} from "@/lib/stockfish/difficulty";
+import {
   playSound,
   preloadSounds,
   stopSound,
@@ -179,6 +185,18 @@ const [blackTime, setBlackTime] =
   const stockfishThinkingRef =
     useRef(false);
 
+  const [
+    selectedStockfishDifficultyId,
+    setSelectedStockfishDifficultyId,
+  ] = useState<StockfishDifficultyId>(
+    DEFAULT_STOCKFISH_DIFFICULTY_ID,
+  );
+
+  const selectedStockfishDifficulty =
+    getStockfishDifficulty(
+      selectedStockfishDifficultyId,
+    );
+
   const latestGameRef = useRef(game);
 
   const stopClockTick = useCallback(() => {
@@ -203,6 +221,15 @@ const [blackTime, setBlackTime] =
 
     stockfishRef.current = engine;
     engine.start();
+
+    engine.send("uci");
+    engine.send(
+      "setoption name UCI_LimitStrength value true",
+    );
+    engine.send(
+      `setoption name UCI_Elo value ${selectedStockfishDifficulty.elo}`,
+    );
+    engine.send("isready");
 
     const unsubscribe = engine.subscribe(
       (message) => {
@@ -304,9 +331,6 @@ const [blackTime, setBlackTime] =
       },
     );
 
-    engine.send("uci");
-    engine.send("isready");
-
     return () => {
       unsubscribe();
       engine.stop();
@@ -318,6 +342,7 @@ const [blackTime, setBlackTime] =
       stockfishThinkingRef.current = false;
     };
   }, [
+    selectedStockfishDifficulty.elo,
     selectedTimeControl.incrementSeconds,
     stopClockTick,
   ]);
@@ -560,8 +585,26 @@ const [blackTime, setBlackTime] =
         stockfishRef.current.send(
           `position fen ${gameCopy.fen()}`,
         );
+        const thinkTimeMsByDifficulty: Record<
+          StockfishDifficultyId,
+          number
+        > = {
+          beginner: 200,
+          easy: 300,
+          casual: 500,
+          intermediate: 800,
+          advanced: 1200,
+          expert: 2000,
+          master: 3000,
+        };
+
+        const thinkTimeMs =
+          thinkTimeMsByDifficulty[
+            selectedStockfishDifficultyId
+          ];
+
         stockfishRef.current.send(
-          "go movetime 500",
+          `go movetime ${thinkTimeMs}`,
         );
       }
 
@@ -906,6 +949,10 @@ setBlackTime(
     moveLabel,
     timeControl: selectedTimeControl,
     timeControls: TIME_CONTROLS,
+    stockfishDifficulty: selectedStockfishDifficulty,
+    stockfishDifficulties: STOCKFISH_DIFFICULTIES,
+    selectedStockfishDifficultyId,
+    setSelectedStockfishDifficultyId,
     selectedTimeControlId,
     setSelectedTimeControlId,
     whiteTime,

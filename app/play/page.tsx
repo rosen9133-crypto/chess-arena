@@ -5,6 +5,7 @@ import { Chessboard } from "react-chessboard";
 import CapturedPieces from "@/components/CapturedPieces";
 import ChessClock from "@/components/ChessClock";
 import TimeControlSelector from "@/components/TimeControlSelector";
+import StockfishDifficultySelector from "@/components/StockfishDifficultySelector";
 import GameControls from "@/components/GameControls";
 import GameInfo from "@/components/GameInfo";
 import GameOverDialog from "@/components/GameOverDialog";
@@ -38,8 +39,12 @@ export default function PlayPage() {
     moveLabel,
     timeControl,
     timeControls,
-selectedTimeControlId,
-setSelectedTimeControlId,
+    stockfishDifficulty,
+    stockfishDifficulties,
+    selectedStockfishDifficultyId,
+    setSelectedStockfishDifficultyId,
+    selectedTimeControlId,
+    setSelectedTimeControlId,
     whiteTime,
     blackTime,
     activeClock,
@@ -179,11 +184,21 @@ setSelectedTimeControlId,
               activeClock={activeClock}
               isClockRunning={isClockRunning}
             />
-<TimeControlSelector
-  controls={timeControls}
-  selectedControlId={selectedTimeControlId}
-  onSelect={setSelectedTimeControlId}
-/>
+
+            <TimeControlSelector
+              controls={timeControls}
+              selectedControlId={selectedTimeControlId}
+              onSelect={setSelectedTimeControlId}
+            />
+
+            <StockfishDifficultySelector
+              difficulties={stockfishDifficulties}
+              selectedDifficultyId={selectedStockfishDifficultyId}
+              selectedElo={stockfishDifficulty.elo}
+              disabled={hasGameStarted}
+              onSelect={setSelectedStockfishDifficultyId}
+            />
+
             <GameInfo game={displayGame} />
 
             <CapturedPieces
