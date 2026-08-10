@@ -40,6 +40,7 @@ export default function PlayPage() {
     moveLabel,
     timeControl,
     timeControls,
+    isUntimedGame,
     stockfishDifficulty,
     stockfishDifficulties,
     playerColorChoice,
@@ -69,10 +70,31 @@ export default function PlayPage() {
   } = useChessGame();
 
   const opponentColor = playerColor === "w" ? "b" : "w";
-  const playerColorLabel = playerColor === "w" ? "White player" : "Black player";
+  const playerColorLabel =
+    playerColor === "w" ? "White player" : "Black player";
   const playerIcon = playerColor === "w" ? "⚪" : "⚫";
-  const opponentColorLabel = opponentColor === "w" ? "White player" : "Black player";
+  const opponentColorLabel =
+    opponentColor === "w" ? "White player" : "Black player";
   const opponentIcon = opponentColor === "w" ? "⚪" : "⚫";
+
+  const playerWon =
+    gameOverDetails.result ===
+    (playerColor === "w" ? "white-win" : "black-win");
+
+  const opponentWon =
+    gameOverDetails.result ===
+    (opponentColor === "w" ? "white-win" : "black-win");
+
+  const arenaScore =
+    !isGameOver
+      ? null
+      : gameOverDetails.result === "draw"
+      ? "½–½"
+      : opponentWon
+      ? "1–0"
+      : playerWon
+      ? "0–1"
+      : gameOverDetails.score;
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6">
@@ -84,7 +106,14 @@ export default function PlayPage() {
 
       <GameOverDialog
         isOpen={shouldShowGameOverDialog}
-        title={gameOverDetails.title}
+        title={
+          gameOverDetails.result === "draw"
+            ? gameOverDetails.title
+            : gameOverDetails.result ===
+              (playerColor === "w" ? "white-win" : "black-win")
+            ? "Victory"
+            : "Defeat"
+        }
         subtitle={gameOverDetails.subtitle}
         score={gameOverDetails.score}
         result={gameOverDetails.result}
@@ -146,6 +175,7 @@ export default function PlayPage() {
                 <p className="text-xs uppercase tracking-widest text-slate-500">
                   {opponentColorLabel}
                 </p>
+
                 <p className="mt-1 font-semibold text-white">
                   {opponentIcon} Opponent
                 </p>
@@ -153,10 +183,19 @@ export default function PlayPage() {
 
               <div className="text-center">
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  {hasGameStarted ? getTurnLabel() : "Ready to play"}
+                  {isGameOver
+                    ? "Finished"
+                    : hasGameStarted
+                    ? getTurnLabel()
+                    : "Ready to play"}
                 </p>
+
                 <p className="mt-1 font-bold text-yellow-400">
-                  {hasGameStarted ? moveLabel : "Set up your game"}
+                  {isGameOver
+                    ? arenaScore
+                    : hasGameStarted
+                    ? moveLabel
+                    : "Set up your game"}
                 </p>
               </div>
 
@@ -164,6 +203,7 @@ export default function PlayPage() {
                 <p className="text-xs uppercase tracking-widest text-slate-500">
                   {playerColorLabel}
                 </p>
+
                 <p className="mt-1 font-semibold text-white">
                   {playerIcon} Rosen
                 </p>
@@ -219,6 +259,7 @@ export default function PlayPage() {
               activeClock={activeClock}
               isClockRunning={isClockRunning}
               playerColor={playerColor}
+              isUntimed={isUntimedGame}
             />
 
             <TimeControlSelector

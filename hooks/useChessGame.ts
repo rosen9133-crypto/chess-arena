@@ -38,6 +38,13 @@ import type {
 
 export const TIME_CONTROLS = [
   {
+    id: "no-time",
+    label: "∞ No Time",
+    category: "Casual",
+    initialMinutes: 0,
+    incrementSeconds: 0,
+  },
+  {
     id: "1+0",
     label: "1+0",
     category: "Bullet",
@@ -82,7 +89,7 @@ export const TIME_CONTROLS = [
 ] as const;
 
 const DEFAULT_TIME_CONTROL =
-  TIME_CONTROLS[4];
+  TIME_CONTROLS[5];
 
 function getInitialTimeSeconds(
   initialMinutes: number,
@@ -148,6 +155,9 @@ export function useChessGame() {
       (control) =>
         control.id === selectedTimeControlId,
     ) ?? DEFAULT_TIME_CONTROL;
+  const isUntimedGame =
+    selectedTimeControl.id === "no-time";
+
 
   const setSelectedTimeControlId: Dispatch<
     SetStateAction<string>
@@ -336,6 +346,7 @@ const [blackTime, setBlackTime] =
           setIsGameOverDialogClosed(false);
 
           if (
+            !isUntimedGame &&
             selectedTimeControl.incrementSeconds >
             0
           ) {
@@ -352,7 +363,7 @@ const [blackTime, setBlackTime] =
             }
           }
 
-          if (gameCopy.isGameOver()) {
+          if (gameCopy.isGameOver() || isUntimedGame) {
             setActiveClock(null);
           } else {
             lastClockUpdateRef.current =
@@ -401,6 +412,7 @@ const [blackTime, setBlackTime] =
   }, [
     selectedStockfishDifficulty.elo,
     selectedTimeControl.incrementSeconds,
+    isUntimedGame,
     stopClockTick,
   ]);
 
@@ -441,6 +453,7 @@ const [blackTime, setBlackTime] =
 
   useEffect(() => {
     if (
+      isUntimedGame ||
       activeClock === null ||
       timedOutColor !== null ||
       game.isGameOver()
@@ -489,10 +502,11 @@ const [blackTime, setBlackTime] =
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [activeClock, game, timedOutColor]);
+  }, [activeClock, game, timedOutColor, isUntimedGame]);
 
   useEffect(() => {
     if (
+      isUntimedGame ||
       activeClock === null ||
       timedOutColor !== null ||
       game.isGameOver()
@@ -549,6 +563,7 @@ const [blackTime, setBlackTime] =
     game,
     timedOutColor,
     whiteTime,
+    isUntimedGame,
     stopClockTick,
   ]);
 
@@ -559,6 +574,12 @@ const [blackTime, setBlackTime] =
 
     stopClockTick();
     playSound("clock-timeout");
+
+    if (timedOutColor === playerColorRef.current) {
+      playSound("lose");
+    } else {
+      playSound("win");
+    }
   }, [timedOutColor, stopClockTick]);
 
   useEffect(() => {
@@ -597,6 +618,7 @@ const [blackTime, setBlackTime] =
 
   function addIncrement(color: ChessColor) {
   if (
+    isUntimedGame ||
     selectedTimeControl.incrementSeconds === 0
   ) {
     return;
@@ -642,7 +664,7 @@ const [blackTime, setBlackTime] =
 
       addIncrement(movingColor);
 
-      if (gameCopy.isGameOver()) {
+      if (gameCopy.isGameOver() || isUntimedGame) {
         setActiveClock(null);
       } else {
         lastClockUpdateRef.current = Date.now();
@@ -827,7 +849,7 @@ const [blackTime, setBlackTime] =
     setBlackTime(initialTime);
     setHasGameStarted(true);
     lastClockUpdateRef.current = Date.now();
-    setActiveClock("w");
+    setActiveClock(isUntimedGame ? null : "w");
   }
 
   function handleResign() {
@@ -1120,6 +1142,7 @@ setBlackTime(
     moveLabel,
     timeControl: selectedTimeControl,
     timeControls: TIME_CONTROLS,
+    isUntimedGame,
     stockfishDifficulty: selectedStockfishDifficulty,
     stockfishDifficulties: STOCKFISH_DIFFICULTIES,
     playerColorChoice,

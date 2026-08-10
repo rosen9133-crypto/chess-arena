@@ -29,8 +29,8 @@ export default function TimeControlSelector({
 
       <div className="space-y-3">
         {controls.map((control) => {
-          const isSelected =
-            control.id === selectedControlId;
+          const isSelected = control.id === selectedControlId;
+          const isUntimed = control.id === "no-time";
 
           return (
             <button
@@ -44,23 +44,15 @@ export default function TimeControlSelector({
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-white">
-                  {control.label}
-                </span>
-
-                {isSelected && (
-                  <span className="text-yellow-400">
-                    ✓
-                  </span>
-                )}
+                <span className="font-semibold text-white">{control.label}</span>
+                {isSelected && <span className="text-yellow-400">✓</span>}
               </div>
 
-              <p className="mt-1 text-sm text-slate-400">
-                {control.category}
-              </p>
-
+              <p className="mt-1 text-sm text-slate-400">{control.category}</p>
               <p className="mt-2 text-xs text-slate-500">
-                {control.initialMinutes}+{control.incrementSeconds}
+                {isUntimed
+                  ? "Unlimited"
+                  : `${control.initialMinutes}+${control.incrementSeconds}`}
               </p>
             </button>
           );
