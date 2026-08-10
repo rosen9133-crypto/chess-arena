@@ -6,6 +6,7 @@ import CapturedPieces from "@/components/CapturedPieces";
 import ChessClock from "@/components/ChessClock";
 import TimeControlSelector from "@/components/TimeControlSelector";
 import StockfishDifficultySelector from "@/components/StockfishDifficultySelector";
+import PlayerColorSelector from "@/components/PlayerColorSelector";
 import GameControls from "@/components/GameControls";
 import GameInfo from "@/components/GameInfo";
 import GameOverDialog from "@/components/GameOverDialog";
@@ -41,6 +42,9 @@ export default function PlayPage() {
     timeControls,
     stockfishDifficulty,
     stockfishDifficulties,
+    playerColorChoice,
+    playerColor,
+    setPlayerColorChoice,
     selectedStockfishDifficultyId,
     setSelectedStockfishDifficultyId,
     selectedTimeControlId,
@@ -52,6 +56,7 @@ export default function PlayPage() {
     setBoardOrientation,
     onDrop,
     handlePromotionSelect,
+    handleStartGame,
     handleNewGame,
     handleResign,
     handleUndo,
@@ -62,6 +67,12 @@ export default function PlayPage() {
     handleShare,
     getTurnLabel,
   } = useChessGame();
+
+  const opponentColor = playerColor === "w" ? "b" : "w";
+  const playerColorLabel = playerColor === "w" ? "White player" : "Black player";
+  const playerIcon = playerColor === "w" ? "⚪" : "⚫";
+  const opponentColorLabel = opponentColor === "w" ? "White player" : "Black player";
+  const opponentIcon = opponentColor === "w" ? "⚪" : "⚫";
 
   return (
     <main className="min-h-screen bg-slate-950 px-4 py-8 text-white sm:px-6">
@@ -92,19 +103,14 @@ export default function PlayPage() {
           <p className="mt-3 text-slate-400">
             Play, improve your skills and conquer the arena.
           </p>
-
         </header>
 
-        <div className="grid items-start gap-8 xl:grid-cols-[288px_minmax(0,620px)_288px] xl:justify-center">
-          <aside className="sticky top-6 self-start flex w-full flex-col gap-6">
+        <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,620px)_300px] xl:justify-center">
+          <aside className="flex w-full flex-col gap-5 xl:sticky xl:top-6">
             <MoveHistory
               history={history}
               currentMoveIndex={currentMoveIndex}
-              result={
-                isGameOver
-                  ? gameOverDetails.score
-                  : undefined
-              }
+              result={isGameOver ? gameOverDetails.score : undefined}
               onMoveSelect={goToMove}
               onFirstMove={goToFirstMove}
               onPreviousMove={goToPreviousMove}
@@ -138,53 +144,81 @@ export default function PlayPage() {
             <div className="mx-auto mt-4 grid w-full max-w-[620px] grid-cols-3 items-center rounded-xl border border-slate-800 bg-slate-900 px-4 py-3 shadow-lg">
               <div>
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  White player
+                  {opponentColorLabel}
                 </p>
-
                 <p className="mt-1 font-semibold text-white">
-                  ⚪ Rosen
+                  {opponentIcon} Opponent
                 </p>
               </div>
 
               <div className="text-center">
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  {getTurnLabel()}
+                  {hasGameStarted ? getTurnLabel() : "Ready to play"}
                 </p>
-
                 <p className="mt-1 font-bold text-yellow-400">
-                  {moveLabel}
+                  {hasGameStarted ? moveLabel : "Set up your game"}
                 </p>
               </div>
 
               <div className="text-right">
                 <p className="text-xs uppercase tracking-widest text-slate-500">
-                  Black player
+                  {playerColorLabel}
                 </p>
-
                 <p className="mt-1 font-semibold text-white">
-                  ⚫ Opponent
+                  {playerIcon} Rosen
                 </p>
               </div>
             </div>
 
-            {isGameOver &&
-              isGameOverDialogClosed && (
-                <button
-                  type="button"
-                  onClick={handleOpenGameOverDialog}
-                  className="mx-auto mt-4 block rounded-lg border border-yellow-400/60 bg-yellow-400/10 px-5 py-2.5 font-semibold text-yellow-300 transition hover:bg-yellow-400/20"
-                >
-                  View game result
-                </button>
+            {isGameOver && isGameOverDialogClosed && (
+              <button
+                type="button"
+                onClick={handleOpenGameOverDialog}
+                className="mx-auto mt-4 block rounded-lg border border-yellow-400/60 bg-yellow-400/10 px-5 py-2.5 font-semibold text-yellow-300 transition hover:bg-yellow-400/20"
+              >
+                View game result
+              </button>
+            )}
+
+            <div className="mx-auto mt-6 grid w-full max-w-[620px] gap-5">
+              <PlayerColorSelector
+                selectedColor={playerColorChoice}
+                onSelect={setPlayerColorChoice}
+                disabled={hasGameStarted}
+              />
+
+              <StockfishDifficultySelector
+                difficulties={stockfishDifficulties}
+                selectedDifficultyId={selectedStockfishDifficultyId}
+                selectedElo={stockfishDifficulty.elo}
+                disabled={hasGameStarted}
+                onSelect={setSelectedStockfishDifficultyId}
+              />
+
+              <button
+                type="button"
+                onClick={handleStartGame}
+                disabled={hasGameStarted}
+                className="w-full rounded-xl bg-yellow-400 px-6 py-4 text-lg font-extrabold tracking-wide text-slate-950 shadow-lg shadow-yellow-400/10 transition hover:bg-yellow-300 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-yellow-400"
+              >
+                ▶ PLAY
+              </button>
+
+              {!hasGameStarted && (
+                <p className="-mt-2 text-center text-sm text-slate-400">
+                  Choose your settings, then press PLAY.
+                </p>
               )}
+            </div>
           </section>
 
-          <aside className="sticky top-6 self-start flex w-full flex-col gap-6">
+          <aside className="flex w-full flex-col gap-5 xl:sticky xl:top-6">
             <ChessClock
               whiteTime={whiteTime}
               blackTime={blackTime}
               activeClock={activeClock}
               isClockRunning={isClockRunning}
+              playerColor={playerColor}
             />
 
             <TimeControlSelector
@@ -193,15 +227,13 @@ export default function PlayPage() {
               onSelect={setSelectedTimeControlId}
             />
 
-            <StockfishDifficultySelector
-              difficulties={stockfishDifficulties}
-              selectedDifficultyId={selectedStockfishDifficultyId}
-              selectedElo={stockfishDifficulty.elo}
-              disabled={hasGameStarted}
-              onSelect={setSelectedStockfishDifficultyId}
+            <GameInfo
+              game={displayGame}
+              hasGameStarted={hasGameStarted}
+              isGameOver={isGameOver}
+              finalScore={gameOverDetails.score}
+              finalTitle={gameOverDetails.title}
             />
-
-            <GameInfo game={displayGame} />
 
             <CapturedPieces
               whiteCaptured={whiteCaptured}

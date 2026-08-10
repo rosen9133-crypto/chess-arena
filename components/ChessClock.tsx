@@ -7,17 +7,15 @@ type ChessClockProps = {
   blackTime: number;
   activeClock: ChessColor | null;
   isClockRunning: boolean;
+  playerColor: ChessColor;
 };
 
 function formatTime(seconds: number) {
   const totalSeconds = Math.max(0, Math.ceil(seconds));
-
   const minutes = Math.floor(totalSeconds / 60);
   const remainingSeconds = totalSeconds % 60;
 
-  return `${minutes}:${remainingSeconds
-    .toString()
-    .padStart(2, "0")}`;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
 function ClockRow({
@@ -71,7 +69,26 @@ export default function ChessClock({
   blackTime,
   activeClock,
   isClockRunning,
+  playerColor,
 }: ChessClockProps) {
+  const whiteClock = (
+    <ClockRow
+      label="White"
+      icon="⚪"
+      time={whiteTime}
+      active={isClockRunning && activeClock === "w"}
+    />
+  );
+
+  const blackClock = (
+    <ClockRow
+      label="Black"
+      icon="⚫"
+      time={blackTime}
+      active={isClockRunning && activeClock === "b"}
+    />
+  );
+
   return (
     <div className="rounded-xl border border-slate-700 bg-slate-800 p-4">
       <h2 className="mb-4 text-center text-lg font-bold">
@@ -79,25 +96,8 @@ export default function ChessClock({
       </h2>
 
       <div className="space-y-4">
-        <ClockRow
-          label="Black"
-          icon="⚫"
-          time={blackTime}
-          active={
-            isClockRunning &&
-            activeClock === "b"
-          }
-        />
-
-        <ClockRow
-          label="White"
-          icon="⚪"
-          time={whiteTime}
-          active={
-            isClockRunning &&
-            activeClock === "w"
-          }
-        />
+        {playerColor === "w" ? blackClock : whiteClock}
+        {playerColor === "w" ? whiteClock : blackClock}
       </div>
     </div>
   );

@@ -2,42 +2,57 @@ import { Chess } from "chess.js";
 
 type GameInfoProps = {
   game: Chess;
+  hasGameStarted: boolean;
+  isGameOver: boolean;
+  finalScore: string;
+  finalTitle: string;
 };
 
 export default function GameInfo({
   game,
+  hasGameStarted,
+  isGameOver,
+  finalScore,
+  finalTitle,
 }: GameInfoProps) {
   const turn = game.turn();
 
-  let status = "Game in progress";
-  let statusColor = "text-green-400";
+  let status = hasGameStarted
+    ? "Game in progress"
+    : "Ready to play";
+  let statusColor = hasGameStarted
+    ? "text-green-400"
+    : "text-sky-400";
 
-  if (game.isCheckmate()) {
-    status = "♛ Checkmate";
-    statusColor = "text-red-400";
-  } else if (game.isDraw()) {
-    status = "🤝 Draw";
-    statusColor = "text-sky-400";
-  } else if (game.inCheck()) {
+  if (isGameOver) {
+    if (game.isCheckmate()) {
+      status = "♛ Checkmate";
+      statusColor = "text-red-400";
+    } else if (game.isDraw()) {
+      status = "🤝 Draw";
+      statusColor = "text-sky-400";
+    } else {
+      status = finalTitle || "Game finished";
+      statusColor = "text-yellow-400";
+    }
+  } else if (hasGameStarted && game.inCheck()) {
     status = "⚠️ Check";
     statusColor = "text-yellow-400";
   }
 
   let winner = "—";
-  let result = "—";
 
-  if (game.isCheckmate()) {
-    if (game.turn() === "w") {
-      winner = "⚫ Black";
-      result = "0–1";
-    } else {
+  if (isGameOver) {
+    if (finalScore === "1–0") {
       winner = "⚪ White";
-      result = "1–0";
+    } else if (finalScore === "0–1") {
+      winner = "⚫ Black";
+    } else if (finalScore === "½–½") {
+      winner = "🤝 Draw";
     }
-  } else if (game.isDraw()) {
-    winner = "🤝 Draw";
-    result = "½–½";
   }
+
+  const result = isGameOver ? finalScore : "—";
 
   return (
     <div className="w-72 rounded-xl bg-slate-800 p-5 shadow-lg">
@@ -46,15 +61,20 @@ export default function GameInfo({
       </h2>
 
       <div className="space-y-4">
-
         <div>
           <p className="text-slate-400">
-            {game.isGameOver() ? "Winner" : "Turn"}
+            {isGameOver
+              ? "Winner"
+              : hasGameStarted
+              ? "Turn"
+              : "Game"}
           </p>
 
           <p className="text-xl font-bold text-white">
-            {game.isGameOver()
+            {isGameOver
               ? winner
+              : !hasGameStarted
+              ? "Set up your game"
               : turn === "w"
               ? "⚪ White"
               : "⚫ Black"}
@@ -80,7 +100,6 @@ export default function GameInfo({
             {status}
           </p>
         </div>
-
       </div>
     </div>
   );

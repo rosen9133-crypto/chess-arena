@@ -1,5 +1,3 @@
-"use client";
-
 import {
   type Dispatch,
   type SetStateAction,
@@ -10,6 +8,7 @@ import {
   useState,
 } from "react";
 import { Chess, type Square } from "chess.js";
+import type { PlayerColorChoice } from "@/components/PlayerColorSelector";
 
 import {
   getCheckSquareStyles,
@@ -95,10 +94,49 @@ const CLOCK_UPDATE_INTERVAL_MS = 250;
 
 type ChessColor = "w" | "b";
 
+function resolvePlayerColor(
+  choice: PlayerColorChoice,
+): ChessColor {
+  if (choice === "white") {
+    return "w";
+  }
+
+  if (choice === "black") {
+    return "b";
+  }
+
+  return Math.random() < 0.5 ? "w" : "b";
+}
+
 export function useChessGame() {
   const [game, setGame] = useState(
     () => new Chess(),
   );
+
+  const [
+    playerColorChoice,
+    setPlayerColorChoiceState,
+  ] = useState<PlayerColorChoice>("white");
+
+  const [
+    playerColor,
+    setPlayerColor,
+  ] = useState<ChessColor>("w");
+
+  const [
+    resignedColor,
+    setResignedColor,
+  ] = useState<ChessColor | null>(null);
+
+  const [
+    isAwaitingColorChoice,
+    setIsAwaitingColorChoice,
+  ] = useState(false);
+
+  const [
+    hasGameStarted,
+    setHasGameStarted,
+  ] = useState(false);
 
   const [
   selectedTimeControlId,
@@ -164,11 +202,6 @@ const [blackTime, setBlackTime] =
     setTimedOutColor,
   ] = useState<ChessColor | null>(null);
 
-  const [
-    resignedColor,
-    setResignedColor,
-  ] = useState<ChessColor | null>(null);
-
   const lastClockUpdateRef = useRef(
     Date.now(),
   );
@@ -203,6 +236,9 @@ const [blackTime, setBlackTime] =
     );
 
   const latestGameRef = useRef(game);
+  const playerColorRef = useRef<ChessColor>(
+    playerColor,
+  );
 
   const stopClockTick = useCallback(() => {
     stopSound("clock-tick");
@@ -212,6 +248,10 @@ const [blackTime, setBlackTime] =
   useEffect(() => {
     latestGameRef.current = game;
   }, [game]);
+
+  useEffect(() => {
+    playerColorRef.current = playerColor;
+  }, [playerColor]);
 
   useEffect(() => {
     preloadSounds();
@@ -255,8 +295,13 @@ const [blackTime, setBlackTime] =
 
         const currentGame = latestGameRef.current;
 
+        const engineColor =
+          playerColorRef.current === "w"
+            ? "b"
+            : "w";
+
         if (
-          currentGame.turn() !== "b" ||
+          currentGame.turn() !== engineColor ||
           currentGame.isGameOver()
         ) {
           return;
@@ -294,10 +339,17 @@ const [blackTime, setBlackTime] =
             selectedTimeControl.incrementSeconds >
             0
           ) {
-            setBlackTime((currentTime) =>
-              currentTime +
-              selectedTimeControl.incrementSeconds
-            );
+            if (engineColor === "w") {
+              setWhiteTime((currentTime) =>
+                currentTime +
+                selectedTimeControl.incrementSeconds
+              );
+            } else {
+              setBlackTime((currentTime) =>
+                currentTime +
+                selectedTimeControl.incrementSeconds
+              );
+            }
           }
 
           if (gameCopy.isGameOver()) {
@@ -350,6 +402,41 @@ const [blackTime, setBlackTime] =
     selectedStockfishDifficulty.elo,
     selectedTimeControl.incrementSeconds,
     stopClockTick,
+  ]);
+
+  useEffect(() => {
+    if (
+      game.isGameOver() ||
+      timedOutColor !== null ||
+      resignedColor !== null ||
+      isAwaitingColorChoice ||
+      !hasGameStarted ||
+      stockfishThinkingRef.current ||
+      !stockfishRef.current
+    ) {
+      return;
+    }
+
+    const engineColor: ChessColor =
+      playerColor === "w" ? "b" : "w";
+
+    if (game.turn() !== engineColor) {
+      return;
+    }
+
+    stockfishThinkingRef.current = true;
+    stockfishRef.current.send(
+      `position fen ${game.fen()}`,
+    );
+    stockfishRef.current.send("go movetime 500");
+  }, [
+    game,
+    playerColor,
+    resignedColor,
+    timedOutColor,
+    isAwaitingColorChoice,
+    hasGameStarted,
+    selectedStockfishDifficulty.elo,
   ]);
 
   useEffect(() => {
@@ -583,38 +670,6 @@ const [blackTime, setBlackTime] =
 
       latestGameRef.current = gameCopy;
 
-      if (
-        movingColor === "w" &&
-        !gameCopy.isGameOver() &&
-        stockfishRef.current
-      ) {
-        stockfishThinkingRef.current = true;
-        stockfishRef.current.send(
-          `position fen ${gameCopy.fen()}`,
-        );
-        const thinkTimeMsByDifficulty: Record<
-          StockfishDifficultyId,
-          number
-        > = {
-          beginner: 200,
-          easy: 300,
-          casual: 500,
-          intermediate: 800,
-          advanced: 1200,
-          expert: 2000,
-          master: 3000,
-        };
-
-        const thinkTimeMs =
-          thinkTimeMsByDifficulty[
-            selectedStockfishDifficultyId
-          ];
-
-        stockfishRef.current.send(
-          `go movetime ${thinkTimeMs}`,
-        );
-      }
-
       return result;
     } catch {
       return null;
@@ -652,8 +707,11 @@ const [blackTime, setBlackTime] =
     if (
       displayGame.isGameOver() ||
       timedOutColor !== null ||
+      resignedColor !== null ||
+      isAwaitingColorChoice ||
+      !hasGameStarted ||
       pendingPromotion ||
-      displayGame.turn() !== "w" ||
+      displayGame.turn() !== playerColor ||
       stockfishThinkingRef.current
     ) {
       return false;
@@ -706,26 +764,84 @@ const [blackTime, setBlackTime] =
     setPendingPromotion(null);
   }
 
-  function handleResign() {
-    if (
-      game.history().length === 0 ||
-      isGameOver
-    ) {
+  const setPlayerColorChoice: Dispatch<
+    SetStateAction<PlayerColorChoice>
+  > = (value) => {
+    if (hasGameStarted) {
       return;
     }
 
+    const nextChoice =
+      typeof value === "function"
+        ? value(playerColorChoice)
+        : value;
+
+    setPlayerColorChoiceState(nextChoice);
+  };
+
+  function handleStartGame() {
+    if (hasGameStarted) {
+      return;
+    }
+
+    const nextPlayerColor =
+      resolvePlayerColor(playerColorChoice);
+
     stockfishThinkingRef.current = false;
     stockfishRef.current?.send("stop");
+    stockfishRef.current?.send("ucinewgame");
+    stockfishRef.current?.send("isready");
 
     stopClockTick();
     stopSound("clock-warning");
     stopSound("clock-timeout");
 
-    setPendingPromotion(null);
-    setActiveClock(null);
-    setResignedColor("w");
-    setIsGameOverDialogClosed(false);
+    clockWarningPlayedRef.current = {
+      w: false,
+      b: false,
+    };
 
+    const initialTime = getInitialTimeSeconds(
+      selectedTimeControl.initialMinutes,
+    );
+
+    const freshGame = new Chess();
+
+    latestGameRef.current = freshGame;
+    playerColorRef.current = nextPlayerColor;
+
+    setGame(freshGame);
+    setCurrentMoveIndex(0);
+    setPlayerColor(nextPlayerColor);
+    setBoardOrientation(
+      nextPlayerColor === "w"
+        ? "white"
+        : "black",
+    );
+    setIsAwaitingColorChoice(false);
+    setPendingPromotion(null);
+    setResignedColor(null);
+    setTimedOutColor(null);
+    setIsGameOverDialogClosed(false);
+    setWhiteTime(initialTime);
+    setBlackTime(initialTime);
+    setHasGameStarted(true);
+    lastClockUpdateRef.current = Date.now();
+    setActiveClock("w");
+  }
+
+  function handleResign() {
+    if (!hasGameStarted || isGameOver) {
+      return;
+    }
+
+    stockfishThinkingRef.current = false;
+    stockfishRef.current?.send("stop");
+    stopClockTick();
+    setActiveClock(null);
+    setPendingPromotion(null);
+    setResignedColor(playerColor);
+    setIsGameOverDialogClosed(false);
     playSound("lose");
   }
 
@@ -743,10 +859,15 @@ const [blackTime, setBlackTime] =
       b: false,
     };
 
-    setGame(new Chess());
+    const freshGame = new Chess();
+
+    latestGameRef.current = freshGame;
+    setGame(freshGame);
     setCurrentMoveIndex(0);
-    setBoardOrientation("white");
+    setHasGameStarted(false);
+    setIsAwaitingColorChoice(false);
     setPendingPromotion(null);
+    setResignedColor(null);
     setIsGameOverDialogClosed(false);
     setWhiteTime(
   getInitialTimeSeconds(
@@ -761,7 +882,6 @@ setBlackTime(
 );
     setActiveClock(null);
     setTimedOutColor(null);
-    setResignedColor(null);
     lastClockUpdateRef.current = Date.now();
   }
 
@@ -897,9 +1017,6 @@ setBlackTime(
     currentMoveIndex > 0 &&
     !isGameOver;
 
-  const hasGameStarted =
-    history.length > 0;
-
   const isClockRunning =
     activeClock !== null && !isGameOver;
 
@@ -942,7 +1059,8 @@ setBlackTime(
       ? {
           isOpen: true,
           title: "Black wins by resignation",
-          subtitle: "White resigned the game.",
+          subtitle:
+            "White resigned the game.",
           score: "0–1",
           result: "black-win" as const,
         }
@@ -950,7 +1068,8 @@ setBlackTime(
         ? {
             isOpen: true,
             title: "White wins by resignation",
-            subtitle: "Black resigned the game.",
+            subtitle:
+              "Black resigned the game.",
             score: "1–0",
             result: "white-win" as const,
           }
@@ -968,7 +1087,8 @@ setBlackTime(
   const shouldShowPromotionDialog =
     pendingPromotion !== null &&
     !displayGame.isGameOver() &&
-    timedOutColor === null;
+    timedOutColor === null &&
+    resignedColor === null;
 
   const promotionColor =
     pendingPromotion?.color ?? displayGame.turn();
@@ -1002,6 +1122,10 @@ setBlackTime(
     timeControls: TIME_CONTROLS,
     stockfishDifficulty: selectedStockfishDifficulty,
     stockfishDifficulties: STOCKFISH_DIFFICULTIES,
+    playerColorChoice,
+    playerColor,
+    setPlayerColorChoice,
+    isAwaitingColorChoice,
     selectedStockfishDifficultyId,
     setSelectedStockfishDifficultyId,
     selectedTimeControlId,
@@ -1014,6 +1138,7 @@ setBlackTime(
     setBoardOrientation,
     onDrop,
     handlePromotionSelect,
+    handleStartGame,
     handleNewGame,
     handleResign,
     handleUndo,
