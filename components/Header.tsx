@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export default function Header() {
   return (
     <header className="w-full border-b border-yellow-500/40 bg-black">
@@ -11,9 +13,12 @@ export default function Header() {
         </div>
 
         <nav className="hidden items-center gap-6 text-sm text-white lg:flex">
-          <a className="transition hover:text-yellow-400" href="#">
+          <Link
+            className="transition hover:text-yellow-400"
+            href="/play"
+          >
             Play
-          </a>
+          </Link>
 
           <a className="transition hover:text-yellow-400" href="#">
             Learn
