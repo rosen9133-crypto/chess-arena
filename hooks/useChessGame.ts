@@ -976,16 +976,14 @@ const [blackTime, setBlackTime] =
 }
 
   function makeMove(move: ChessMove) {
-    if (timedOutColor !== null) {
+    if (
+      timedOutColor !== null ||
+      !isViewingLatestMove
+    ) {
       return null;
     }
 
-    const gameCopy = isViewingLatestMove
-      ? createGameWithHistory(game)
-      : createGameWithHistory(
-          game,
-          currentMoveIndex,
-        );
+    const gameCopy = createGameWithHistory(game);
 
     const movingColor = gameCopy.turn();
 
@@ -1071,6 +1069,7 @@ const [blackTime, setBlackTime] =
       isAwaitingColorChoice ||
       !hasGameStarted ||
       pendingPromotion ||
+      !isViewingLatestMove ||
       displayGame.turn() !== playerColor ||
       stockfishThinkingRef.current
     ) {
@@ -1248,17 +1247,52 @@ setBlackTime(
   function handleUndo() {
     setPendingPromotion(null);
 
+    const historyLength = game.history().length;
+
     if (
       timedOutColor !== null ||
-      currentMoveIndex === 0
+      resignedColor !== null ||
+      historyLength === 0
     ) {
       return;
     }
 
-    setCurrentMoveIndex(
-      (currentIndex) =>
-        Math.max(currentIndex - 1, 0),
+    stockfishThinkingRef.current = false;
+    stockfishCandidatesRef.current.clear();
+    stockfishRef.current?.send("stop");
+
+    const isComputerTurn =
+      game.turn() !== playerColor;
+
+    const movesToUndo = isComputerTurn ? 1 : 2;
+
+    const targetMoveIndex = Math.max(
+      historyLength - movesToUndo,
+      0,
     );
+
+    const gameCopy = createGameWithHistory(
+      game,
+      targetMoveIndex,
+    );
+
+    stopClockTick();
+
+    latestGameRef.current = gameCopy;
+    setGame(gameCopy);
+    setCurrentMoveIndex(
+      gameCopy.history().length,
+    );
+    setIsGameOverDialogClosed(false);
+    setTimedOutColor(null);
+    setResignedColor(null);
+
+    if (isUntimedGame || gameCopy.isGameOver()) {
+      setActiveClock(null);
+    } else {
+      lastClockUpdateRef.current = Date.now();
+      setActiveClock(gameCopy.turn());
+    }
   }
 
   function handleFlipBoard() {
@@ -1374,7 +1408,7 @@ setBlackTime(
   }
 
   const canUndo =
-    currentMoveIndex > 0 &&
+    game.history().length > 0 &&
     !isGameOver;
 
   const isClockRunning =

@@ -1,5 +1,10 @@
 "use client";
 
+import {
+  useEffect,
+  useRef,
+} from "react";
+
 type MoveHistoryProps = {
   history: string[];
   currentMoveIndex: number;
@@ -21,6 +26,9 @@ export function MoveHistory({
   onNextMove,
   onLastMove,
 }: MoveHistoryProps) {
+  const scrollContainerRef =
+    useRef<HTMLDivElement | null>(null);
+
   const rows = [];
 
   for (let i = 0; i < history.length; i += 2) {
@@ -38,6 +46,20 @@ export function MoveHistory({
 
   const isAtLastMove =
     currentMoveIndex === history.length;
+
+  useEffect(() => {
+    if (
+      !isAtLastMove ||
+      !scrollContainerRef.current
+    ) {
+      return;
+    }
+
+    scrollContainerRef.current.scrollTo({
+      top: scrollContainerRef.current.scrollHeight,
+      behavior: "smooth",
+    });
+  }, [history.length, isAtLastMove]);
 
   function getMoveButtonClass(
     moveIndex: number,
@@ -60,19 +82,19 @@ export function MoveHistory({
   }
 
   return (
-    <div className="w-full rounded-xl border border-slate-700 bg-slate-800 p-5 text-white shadow-lg lg:w-72">
-      <h2 className="mb-5 text-2xl font-bold text-yellow-400">
+    <div className="w-full rounded-xl border border-slate-700 bg-slate-800 p-4 text-white shadow-lg lg:w-72">
+      <h2 className="mb-3 text-xl font-bold text-yellow-400">
         📜 Move History
       </h2>
 
-      <div className="mb-4 grid grid-cols-4 gap-2">
+      <div className="mb-3 grid grid-cols-4 gap-2">
         <button
           type="button"
           onClick={onFirstMove}
           disabled={isAtFirstMove}
           aria-label="Go to starting position"
           title="Starting position"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
         >
           ⏮️
         </button>
@@ -83,7 +105,7 @@ export function MoveHistory({
           disabled={isAtFirstMove}
           aria-label="Go to previous move"
           title="Previous move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
         >
           ◀️
         </button>
@@ -94,7 +116,7 @@ export function MoveHistory({
           disabled={isAtLastMove}
           aria-label="Go to next move"
           title="Next move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
         >
           ▶️
         </button>
@@ -105,33 +127,36 @@ export function MoveHistory({
           disabled={isAtLastMove}
           aria-label="Go to latest move"
           title="Latest move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-3 py-2 font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
         >
           ⏭️
         </button>
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-5">
-          <p className="text-center text-slate-400">
+        <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-3">
+          <p className="text-center text-sm text-slate-400">
             No moves have been played yet.
           </p>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-700">
-          <div className="grid grid-cols-[45px_1fr_1fr] bg-slate-900 px-3 py-2 text-sm font-bold text-yellow-400">
+          <div className="grid grid-cols-[38px_1fr_1fr] bg-slate-900 px-2 py-1.5 text-xs font-bold text-yellow-400">
             <div>#</div>
             <div>⚪ White</div>
             <div>⚫ Black</div>
           </div>
 
-          <div className="max-h-[420px] overflow-y-auto">
+          <div
+            ref={scrollContainerRef}
+            className="max-h-[150px] overflow-y-auto scroll-smooth"
+          >
             {rows.map((row) => (
               <div
                 key={row.move}
-                className="grid grid-cols-[45px_1fr_1fr] border-t border-slate-700 px-3 py-2"
+                className="grid grid-cols-[38px_1fr_1fr] border-t border-slate-700 px-2 py-1"
               >
-                <div className="flex items-center font-bold text-yellow-400">
+                <div className="flex items-center text-sm font-bold text-yellow-400">
                   {row.move}.
                 </div>
 
@@ -144,7 +169,7 @@ export function MoveHistory({
                           row.whiteIndex,
                         )
                       }
-                      className={`w-full rounded-md px-2 py-1 text-left font-medium transition active:scale-[0.98] ${getMoveButtonClass(
+                      className={`w-full rounded-md px-2 py-0.5 text-left text-sm font-medium transition active:scale-[0.98] ${getMoveButtonClass(
                         row.whiteIndex,
                       )}`}
                     >
@@ -162,7 +187,7 @@ export function MoveHistory({
                           row.blackIndex,
                         )
                       }
-                      className={`w-full rounded-md px-2 py-1 text-left font-medium transition active:scale-[0.98] ${getMoveButtonClass(
+                      className={`w-full rounded-md px-2 py-0.5 text-left text-sm font-medium transition active:scale-[0.98] ${getMoveButtonClass(
                         row.blackIndex,
                       )}`}
                     >
@@ -174,12 +199,12 @@ export function MoveHistory({
             ))}
 
             {result && (
-              <div className="border-t border-slate-700 bg-slate-900 px-3 py-4 text-center">
-                <p className="text-xs uppercase tracking-widest text-slate-400">
+              <div className="border-t border-slate-700 bg-slate-900 px-3 py-2 text-center">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">
                   Result
                 </p>
 
-                <p className="mt-2 text-2xl font-extrabold text-yellow-400">
+                <p className="mt-1 text-xl font-extrabold text-yellow-400">
                   {result}
                 </p>
               </div>
@@ -188,7 +213,7 @@ export function MoveHistory({
         </div>
       )}
 
-      <div className="mt-4 flex items-center justify-between text-xs text-slate-400">
+      <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
         <span>
           Viewing: {currentMoveIndex}/
           {history.length}
