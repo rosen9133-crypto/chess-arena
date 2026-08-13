@@ -101,6 +101,35 @@ const CLOCK_UPDATE_INTERVAL_MS = 250;
 
 type ChessColor = "w" | "b";
 
+const SAVED_GAME_STORAGE_KEY = "chess-arena-current-game-v1";
+
+type SavedGameMove = {
+  from: string;
+  to: string;
+  promotion?: PromotionPiece;
+};
+
+type SavedGameState = {
+  version: 1;
+  moves: SavedGameMove[];
+  currentMoveIndex: number;
+  hasGameStarted: boolean;
+  playerColorChoice: PlayerColorChoice;
+  playerColor: ChessColor;
+  boardOrientation: BoardOrientation;
+  selectedStockfishDifficultyId: StockfishDifficultyId;
+  selectedTimeControlId: string;
+  whiteTime: number;
+  blackTime: number;
+  activeClock: ChessColor | null;
+  timedOutColor: ChessColor | null;
+  resignedColor: ChessColor | null;
+  pendingPromotion: PendingPromotion | null;
+  isAwaitingColorChoice: boolean;
+  isGameOverDialogClosed: boolean;
+  savedAt: number;
+};
+
 type StockfishCandidate = {
   move: string;
   score: number;
@@ -313,6 +342,9 @@ const [blackTime, setBlackTime] =
     DEFAULT_STOCKFISH_DIFFICULTY_ID,
   );
 
+  const [hasRestoredSavedGame, setHasRestoredSavedGame] =
+    useState(false);
+
   const selectedStockfishDifficulty =
     getStockfishDifficulty(
       selectedStockfishDifficultyId,
@@ -335,6 +367,214 @@ const [blackTime, setBlackTime] =
   useEffect(() => {
     playerColorRef.current = playerColor;
   }, [playerColor]);
+
+  useEffect(() => {
+    try {
+      const rawSavedGame = window.localStorage.getItem(
+        SAVED_GAME_STORAGE_KEY,
+      );
+
+      if (!rawSavedGame) {
+        setHasRestoredSavedGame(true);
+        return;
+      }
+
+      const savedGame = JSON.parse(
+        rawSavedGame,
+      ) as SavedGameState;
+
+      if (
+        savedGame.version !== 1 ||
+        !Array.isArray(savedGame.moves) ||
+        !savedGame.hasGameStarted
+      ) {
+        window.localStorage.removeItem(
+          SAVED_GAME_STORAGE_KEY,
+        );
+        setHasRestoredSavedGame(true);
+        return;
+      }
+
+      const restoredGame = new Chess();
+
+      savedGame.moves.forEach((move) => {
+        restoredGame.move({
+          from: move.from,
+          to: move.to,
+          ...(move.promotion
+            ? { promotion: move.promotion }
+            : {}),
+        });
+      });
+
+      const restoredTimeControl =
+        TIME_CONTROLS.find(
+          (control) =>
+            control.id === savedGame.selectedTimeControlId,
+        ) ?? DEFAULT_TIME_CONTROL;
+
+      let restoredWhiteTime = Math.max(
+        0,
+        Number(savedGame.whiteTime) || 0,
+      );
+      let restoredBlackTime = Math.max(
+        0,
+        Number(savedGame.blackTime) || 0,
+      );
+      let restoredActiveClock = savedGame.activeClock;
+      let restoredTimedOutColor = savedGame.timedOutColor;
+
+      const shouldAccountForRefreshTime =
+        restoredTimeControl.id !== "no-time" &&
+        restoredActiveClock !== null &&
+        restoredTimedOutColor === null &&
+        savedGame.resignedColor === null &&
+        !restoredGame.isGameOver();
+
+      if (shouldAccountForRefreshTime) {
+        const elapsedSeconds = Math.max(
+          0,
+          (Date.now() - Number(savedGame.savedAt || Date.now())) /
+            1000,
+        );
+
+        if (restoredActiveClock === "w") {
+          restoredWhiteTime = Math.max(
+            0,
+            restoredWhiteTime - elapsedSeconds,
+          );
+
+          if (restoredWhiteTime === 0) {
+            restoredTimedOutColor = "w";
+            restoredActiveClock = null;
+          }
+        } else {
+          restoredBlackTime = Math.max(
+            0,
+            restoredBlackTime - elapsedSeconds,
+          );
+
+          if (restoredBlackTime === 0) {
+            restoredTimedOutColor = "b";
+            restoredActiveClock = null;
+          }
+        }
+      }
+
+      if (restoredTimeControl.id === "no-time") {
+        restoredActiveClock = null;
+      }
+
+      const safeMoveIndex = Math.min(
+        Math.max(Number(savedGame.currentMoveIndex) || 0, 0),
+        restoredGame.history().length,
+      );
+
+      latestGameRef.current = restoredGame;
+      playerColorRef.current = savedGame.playerColor;
+
+      setGame(restoredGame);
+      setCurrentMoveIndex(safeMoveIndex);
+      setHasGameStarted(true);
+      setPlayerColorChoiceState(savedGame.playerColorChoice);
+      setPlayerColor(savedGame.playerColor);
+      setBoardOrientation(savedGame.boardOrientation);
+      setSelectedStockfishDifficultyId(
+        savedGame.selectedStockfishDifficultyId,
+      );
+      setSelectedTimeControlIdState(restoredTimeControl.id);
+      setWhiteTime(restoredWhiteTime);
+      setBlackTime(restoredBlackTime);
+      setActiveClock(restoredActiveClock);
+      setTimedOutColor(restoredTimedOutColor);
+      setResignedColor(savedGame.resignedColor);
+      setPendingPromotion(savedGame.pendingPromotion ?? null);
+      setIsAwaitingColorChoice(
+        savedGame.isAwaitingColorChoice ?? false,
+      );
+      setIsGameOverDialogClosed(
+        savedGame.isGameOverDialogClosed ?? false,
+      );
+      lastClockUpdateRef.current = Date.now();
+    } catch (error) {
+      console.error(
+        "Could not restore the saved Chess Arena game:",
+        error,
+      );
+      window.localStorage.removeItem(
+        SAVED_GAME_STORAGE_KEY,
+      );
+    } finally {
+      setHasRestoredSavedGame(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasRestoredSavedGame) {
+      return;
+    }
+
+    if (!hasGameStarted) {
+      window.localStorage.removeItem(
+        SAVED_GAME_STORAGE_KEY,
+      );
+      return;
+    }
+
+    const moves: SavedGameMove[] = game
+      .history({ verbose: true })
+      .map((move) => ({
+        from: move.from,
+        to: move.to,
+        ...(move.promotion
+          ? { promotion: move.promotion as PromotionPiece }
+          : {}),
+      }));
+
+    const savedGame: SavedGameState = {
+      version: 1,
+      moves,
+      currentMoveIndex,
+      hasGameStarted,
+      playerColorChoice,
+      playerColor,
+      boardOrientation,
+      selectedStockfishDifficultyId,
+      selectedTimeControlId,
+      whiteTime,
+      blackTime,
+      activeClock,
+      timedOutColor,
+      resignedColor,
+      pendingPromotion,
+      isAwaitingColorChoice,
+      isGameOverDialogClosed,
+      savedAt: Date.now(),
+    };
+
+    window.localStorage.setItem(
+      SAVED_GAME_STORAGE_KEY,
+      JSON.stringify(savedGame),
+    );
+  }, [
+    activeClock,
+    blackTime,
+    boardOrientation,
+    currentMoveIndex,
+    game,
+    hasGameStarted,
+    hasRestoredSavedGame,
+    isAwaitingColorChoice,
+    isGameOverDialogClosed,
+    pendingPromotion,
+    playerColor,
+    playerColorChoice,
+    resignedColor,
+    selectedStockfishDifficultyId,
+    selectedTimeControlId,
+    timedOutColor,
+    whiteTime,
+  ]);
 
   useEffect(() => {
     preloadSounds();
@@ -921,7 +1161,11 @@ const [blackTime, setBlackTime] =
   }, [timedOutColor, stopClockTick]);
 
   useEffect(() => {
-    if (game.history().length > 0) {
+    if (
+      !hasRestoredSavedGame ||
+      hasGameStarted ||
+      game.history().length > 0
+    ) {
       return;
     }
 
@@ -931,7 +1175,12 @@ const [blackTime, setBlackTime] =
 
     setWhiteTime(initialTime);
     setBlackTime(initialTime);
-  }, [game, selectedTimeControl.initialMinutes]);
+  }, [
+    game,
+    hasGameStarted,
+    hasRestoredSavedGame,
+    selectedTimeControl.initialMinutes,
+  ]);
 
   const history = game.history();
 
