@@ -12,6 +12,7 @@ import GameInfo from "@/components/GameInfo";
 import GameOverDialog from "@/components/GameOverDialog";
 import { MoveHistory } from "@/components/MoveHistory";
 import PromotionDialog from "@/components/PromotionDialog";
+import SoundControl from "@/components/SoundControl";
 import { useChessGame } from "@/hooks/useChessGame";
 
 export default function PlayPage() {
@@ -124,14 +125,20 @@ export default function PlayPage() {
       />
 
       <div className="mx-auto max-w-[1450px]">
-        <header className="mb-10 text-center">
-          <h1 className="text-4xl font-extrabold tracking-tight text-yellow-400 sm:text-5xl">
-            ♟️ Chess Arena
-          </h1>
+        <header className="mb-10">
+          <div className="text-center">
+            <h1 className="text-4xl font-extrabold tracking-tight text-yellow-400 sm:text-5xl">
+              ♟️ Chess Arena
+            </h1>
 
-          <p className="mt-3 text-slate-400">
-            Play, improve your skills and conquer the arena.
-          </p>
+            <p className="mt-3 text-slate-400">
+              Play, improve your skills and conquer the arena.
+            </p>
+          </div>
+
+          <div className="mx-auto mt-5 w-full max-w-xs">
+            <SoundControl />
+          </div>
         </header>
 
         <div className="grid items-start gap-6 xl:grid-cols-[280px_minmax(0,620px)_300px] xl:justify-center">
