@@ -2,35 +2,33 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
 
   const router = useRouter();
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
 
-    const response = await fetch("/api/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        email,
-        password,
-      }),
+    setError("");
+
+    const result = await signIn("credentials", {
+      email,
+      password,
+      redirect: false,
     });
 
-    const data = await response.json();
-
-    if (response.ok) {
-      alert(data.message);
-      router.push("/dashboard");
-    } else {
-      alert(data.message);
+    if (result?.error) {
+      setError("Грешен имейл или парола.");
+      return;
     }
+
+    router.push("/dashboard");
+    router.refresh();
   }
 
   return (
@@ -58,6 +56,12 @@ export default function LoginPage() {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+
+        {error && (
+          <p className="text-red-400 text-sm text-center">
+            {error}
+          </p>
+        )}
 
         <button
           type="submit"
