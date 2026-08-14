@@ -8,8 +8,12 @@ type GameControlsProps = {
   canUndo: boolean;
   hasGameStarted: boolean;
   isGameOver: boolean;
+  canOfferDraw: boolean;
+  isEvaluatingDrawOffer: boolean;
+  drawOfferMessage: string | null;
   boardOrientation: BoardOrientation;
   onNewGame: () => void;
+  onOfferDraw: () => void;
   onResign: () => void;
   onUndo: () => void;
   onFlipBoard: () => void;
@@ -22,8 +26,12 @@ export default function GameControls({
   canUndo,
   hasGameStarted,
   isGameOver,
+  canOfferDraw,
+  isEvaluatingDrawOffer,
+  drawOfferMessage,
   boardOrientation,
   onNewGame,
+  onOfferDraw,
   onResign,
   onUndo,
   onFlipBoard,
@@ -87,6 +95,23 @@ export default function GameControls({
           >
             🆕 New Game
           </button>
+
+          <button
+            type="button"
+            onClick={onOfferDraw}
+            disabled={!canOfferDraw || isEvaluatingDrawOffer}
+            className="w-full rounded-lg border border-emerald-500/50 bg-emerald-500/10 px-4 py-3 font-semibold text-emerald-300 transition hover:border-emerald-400 hover:bg-emerald-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-emerald-500/50 disabled:hover:bg-emerald-500/10"
+          >
+            {isEvaluatingDrawOffer
+              ? "🤝 Considering…"
+              : "🤝 Offer Draw"}
+          </button>
+
+          {drawOfferMessage && !isGameOver && (
+            <p className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-center text-sm text-slate-300">
+              {drawOfferMessage}
+            </p>
+          )}
 
           <button
             type="button"

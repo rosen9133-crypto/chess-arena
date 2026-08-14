@@ -54,6 +54,9 @@ export default function PlayPage() {
     whiteTime,
     blackTime,
     activeClock,
+    isEvaluatingDrawOffer,
+    drawOfferMessage,
+    canOfferDraw,
     isClockRunning,
     setBoardOrientation,
     onDrop,
@@ -61,6 +64,7 @@ export default function PlayPage() {
     handleStartGame,
     handleRematch,
     handleNewGame,
+    handleOfferDraw,
     handleResign,
     handleUndo,
     handleFlipBoard,
@@ -160,8 +164,12 @@ export default function PlayPage() {
               canUndo={canUndo}
               hasGameStarted={hasGameStarted}
               isGameOver={isGameOver}
+              canOfferDraw={canOfferDraw}
+              isEvaluatingDrawOffer={isEvaluatingDrawOffer}
+              drawOfferMessage={drawOfferMessage}
               boardOrientation={boardOrientation}
               onNewGame={handleNewGame}
+              onOfferDraw={handleOfferDraw}
               onResign={handleResign}
               onUndo={handleUndo}
               onFlipBoard={handleFlipBoard}

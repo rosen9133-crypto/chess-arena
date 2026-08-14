@@ -124,6 +124,7 @@ type SavedGameState = {
   activeClock: ChessColor | null;
   timedOutColor: ChessColor | null;
   resignedColor: ChessColor | null;
+  drawAgreed?: boolean;
   pendingPromotion: PendingPromotion | null;
   isAwaitingColorChoice: boolean;
   isGameOverDialogClosed: boolean;
@@ -231,6 +232,24 @@ export function useChessGame() {
     resignedColor,
     setResignedColor,
   ] = useState<ChessColor | null>(null);
+
+  const [drawAgreed, setDrawAgreed] = useState(false);
+  const [
+    isEvaluatingDrawOffer,
+    setIsEvaluatingDrawOffer,
+  ] = useState(false);
+  const [
+    drawOfferMessage,
+    setDrawOfferMessage,
+  ] = useState<string | null>(null);
+
+  const drawOfferEvaluationRef = useRef<{
+    active: boolean;
+    latestScore: number | null;
+  }>({
+    active: false,
+    latestScore: null,
+  });
 
   const [
     isAwaitingColorChoice,
@@ -488,6 +507,7 @@ const [blackTime, setBlackTime] =
       setActiveClock(restoredActiveClock);
       setTimedOutColor(restoredTimedOutColor);
       setResignedColor(savedGame.resignedColor);
+      setDrawAgreed(savedGame.drawAgreed ?? false);
       setPendingPromotion(savedGame.pendingPromotion ?? null);
       setIsAwaitingColorChoice(
         savedGame.isAwaitingColorChoice ?? false,
@@ -546,6 +566,7 @@ const [blackTime, setBlackTime] =
       activeClock,
       timedOutColor,
       resignedColor,
+      drawAgreed,
       pendingPromotion,
       isAwaitingColorChoice,
       isGameOverDialogClosed,
@@ -570,6 +591,7 @@ const [blackTime, setBlackTime] =
     playerColor,
     playerColorChoice,
     resignedColor,
+    drawAgreed,
     selectedStockfishDifficultyId,
     selectedTimeControlId,
     timedOutColor,
@@ -615,6 +637,62 @@ const [blackTime, setBlackTime] =
 
     const unsubscribe = engine.subscribe(
       (message) => {
+        if (drawOfferEvaluationRef.current.active) {
+          if (message.startsWith("info ")) {
+            const score = parseStockfishScore(message);
+
+            if (score !== null) {
+              drawOfferEvaluationRef.current.latestScore = score;
+            }
+
+            return;
+          }
+
+          if (message.startsWith("bestmove ")) {
+            const evaluation =
+              drawOfferEvaluationRef.current.latestScore;
+
+            drawOfferEvaluationRef.current = {
+              active: false,
+              latestScore: null,
+            };
+
+            setIsEvaluatingDrawOffer(false);
+
+            if (evaluation === null) {
+              setDrawOfferMessage(
+                "The computer could not evaluate the draw offer. Try again.",
+              );
+              return;
+            }
+
+            // Stockfish scores the position from the side-to-move perspective.
+            // A draw is accepted when the computer is not clearly better:
+            // roughly equal positions, or positions where the player is better.
+            const DRAW_DECLINE_THRESHOLD_CP = -50;
+            const computerClearlyBetter =
+              evaluation < DRAW_DECLINE_THRESHOLD_CP;
+
+            if (computerClearlyBetter) {
+              setDrawOfferMessage("Draw offer declined.");
+              return;
+            }
+
+            stopClockTick();
+            stopSound("clock-warning");
+            stopSound("clock-timeout");
+            setActiveClock(null);
+            setPendingPromotion(null);
+            setDrawAgreed(true);
+            setDrawOfferMessage("Draw offer accepted.");
+            setIsGameOverDialogClosed(false);
+            playSound("draw");
+            return;
+          }
+
+          return;
+        }
+
         if (message.startsWith("info ")) {
           const multiPvMatch =
             message.match(/\bmultipv (\d+)/);
@@ -1201,7 +1279,8 @@ const [blackTime, setBlackTime] =
   const isGameOver =
     chessGameOver ||
     timedOutColor !== null ||
-    resignedColor !== null;
+    resignedColor !== null ||
+    drawAgreed;
 
   function addIncrement(color: ChessColor) {
   if (
@@ -1429,6 +1508,13 @@ const [blackTime, setBlackTime] =
     setIsAwaitingColorChoice(false);
     setPendingPromotion(null);
     setResignedColor(null);
+    setDrawAgreed(false);
+    setDrawOfferMessage(null);
+    setIsEvaluatingDrawOffer(false);
+    drawOfferEvaluationRef.current = {
+      active: false,
+      latestScore: null,
+    };
     setTimedOutColor(null);
     setIsGameOverDialogClosed(false);
     setWhiteTime(initialTime);
@@ -1436,6 +1522,34 @@ const [blackTime, setBlackTime] =
     setHasGameStarted(true);
     lastClockUpdateRef.current = Date.now();
     setActiveClock(isUntimedGame ? null : "w");
+  }
+
+  function handleOfferDraw() {
+    if (
+      !hasGameStarted ||
+      isGameOver ||
+      isEvaluatingDrawOffer ||
+      game.turn() !== playerColor ||
+      stockfishThinkingRef.current ||
+      !stockfishRef.current
+    ) {
+      return;
+    }
+
+    setDrawOfferMessage("Computer is considering the draw offer…");
+    setIsEvaluatingDrawOffer(true);
+
+    drawOfferEvaluationRef.current = {
+      active: true,
+      latestScore: null,
+    };
+
+    stockfishCandidatesRef.current.clear();
+    stockfishRef.current.send("stop");
+    stockfishRef.current.send(
+      `position fen ${game.fen()}`,
+    );
+    stockfishRef.current.send("go depth 12");
   }
 
   function handleResign() {
@@ -1496,6 +1610,13 @@ const [blackTime, setBlackTime] =
     setIsAwaitingColorChoice(false);
     setPendingPromotion(null);
     setResignedColor(null);
+    setDrawAgreed(false);
+    setDrawOfferMessage(null);
+    setIsEvaluatingDrawOffer(false);
+    drawOfferEvaluationRef.current = {
+      active: false,
+      latestScore: null,
+    };
     setTimedOutColor(null);
     setIsGameOverDialogClosed(false);
     setWhiteTime(initialTime);
@@ -1528,6 +1649,13 @@ const [blackTime, setBlackTime] =
     setIsAwaitingColorChoice(false);
     setPendingPromotion(null);
     setResignedColor(null);
+    setDrawAgreed(false);
+    setDrawOfferMessage(null);
+    setIsEvaluatingDrawOffer(false);
+    drawOfferEvaluationRef.current = {
+      active: false,
+      latestScore: null,
+    };
     setIsGameOverDialogClosed(false);
     setWhiteTime(
   getInitialTimeSeconds(
@@ -1587,6 +1715,8 @@ setBlackTime(
     setIsGameOverDialogClosed(false);
     setTimedOutColor(null);
     setResignedColor(null);
+    setDrawAgreed(false);
+    setDrawOfferMessage(null);
 
     if (isUntimedGame || gameCopy.isGameOver()) {
       setActiveClock(null);
@@ -1770,7 +1900,20 @@ setBlackTime(
           }
         : null;
 
+  const agreedDrawGameOverDetails =
+    drawAgreed
+      ? {
+          isOpen: true,
+          title: "Draw agreed",
+          subtitle:
+            "The computer accepted your draw offer.",
+          score: "½–½",
+          result: "draw" as const,
+        }
+      : null;
+
   const gameOverDetails =
+    agreedDrawGameOverDetails ??
     resignationGameOverDetails ??
     timeoutGameOverDetails ??
     standardGameOverDetails;
@@ -1783,7 +1926,8 @@ setBlackTime(
     pendingPromotion !== null &&
     !displayGame.isGameOver() &&
     timedOutColor === null &&
-    resignedColor === null;
+    resignedColor === null &&
+    !drawAgreed;
 
   const promotionColor =
     pendingPromotion?.color ?? displayGame.turn();
@@ -1830,6 +1974,14 @@ setBlackTime(
     blackTime,
     activeClock,
     timedOutColor,
+    drawAgreed,
+    isEvaluatingDrawOffer,
+    drawOfferMessage,
+    canOfferDraw:
+      hasGameStarted &&
+      !isGameOver &&
+      game.turn() === playerColor &&
+      !stockfishThinkingRef.current,
     isClockRunning,
     setBoardOrientation,
     onDrop,
@@ -1837,6 +1989,7 @@ setBlackTime(
     handleStartGame,
     handleRematch,
     handleNewGame,
+    handleOfferDraw,
     handleResign,
     handleUndo,
     handleFlipBoard,
