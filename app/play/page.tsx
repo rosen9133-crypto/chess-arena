@@ -56,6 +56,7 @@ export default function PlayPage() {
     activeClock,
     isEvaluatingDrawOffer,
     drawOfferMessage,
+    isComputerDrawOfferOpen,
     canOfferDraw,
     isClockRunning,
     setBoardOrientation,
@@ -65,6 +66,8 @@ export default function PlayPage() {
     handleRematch,
     handleNewGame,
     handleOfferDraw,
+    handleAcceptComputerDrawOffer,
+    handleDeclineComputerDrawOffer,
     handleResign,
     handleUndo,
     handleFlipBoard,
@@ -109,6 +112,50 @@ export default function PlayPage() {
         color={promotionColor}
         onSelect={handlePromotionSelect}
       />
+
+      {isComputerDrawOfferOpen && !isGameOver && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl border border-slate-700 bg-slate-900 shadow-2xl shadow-black/50">
+            <div className="h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent" />
+
+            <div className="px-6 pb-7 pt-8 sm:px-8">
+              <div className="text-center">
+                <div className="mb-4 text-6xl">🤝</div>
+
+                <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-500">
+                  Draw Offer
+                </p>
+
+                <h2 className="mt-3 text-3xl font-extrabold text-white">
+                  Computer offers a draw
+                </h2>
+
+                <p className="mt-4 leading-6 text-slate-300">
+                  Stockfish thinks the position is balanced and is offering a draw.
+                </p>
+              </div>
+
+              <div className="mt-8 grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={handleDeclineComputerDrawOffer}
+                  className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-3.5 font-semibold text-white transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
+                >
+                  Decline
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleAcceptComputerDrawOffer}
+                  className="rounded-xl bg-emerald-400 px-4 py-3.5 font-bold text-slate-950 transition hover:bg-emerald-300 active:scale-[0.98]"
+                >
+                  Accept Draw
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <GameOverDialog
         isOpen={shouldShowGameOverDialog}

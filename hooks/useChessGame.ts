@@ -252,6 +252,13 @@ export function useChessGame() {
   });
 
   const [
+    isComputerDrawOfferOpen,
+    setIsComputerDrawOfferOpen,
+  ] = useState(false);
+
+  const computerDrawOfferCooldownRef = useRef(0);
+
+  const [
     isAwaitingColorChoice,
     setIsAwaitingColorChoice,
   ] = useState(false);
@@ -743,6 +750,11 @@ const [blackTime, setBlackTime] =
 
         stockfishCandidatesRef.current.clear();
 
+        const engineEvaluation =
+          candidates.length > 0
+            ? candidates[0].score
+            : null;
+
         let bestMove = engineBestMove;
 
         if (
@@ -846,6 +858,28 @@ const [blackTime, setBlackTime] =
             gameCopy.history().length,
           );
           setIsGameOverDialogClosed(false);
+
+          const fullMoveNumber =
+            Math.floor(gameCopy.history().length / 2);
+
+          if (computerDrawOfferCooldownRef.current > 0) {
+            computerDrawOfferCooldownRef.current -= 1;
+          }
+
+          const DRAW_OFFER_EQUAL_THRESHOLD_CP = 25;
+          const MIN_FULL_MOVES_BEFORE_COMPUTER_DRAW_OFFER = 12;
+
+          if (
+            !gameCopy.isGameOver() &&
+            engineEvaluation !== null &&
+            Math.abs(engineEvaluation) <=
+              DRAW_OFFER_EQUAL_THRESHOLD_CP &&
+            fullMoveNumber >=
+              MIN_FULL_MOVES_BEFORE_COMPUTER_DRAW_OFFER &&
+            computerDrawOfferCooldownRef.current === 0
+          ) {
+            setIsComputerDrawOfferOpen(true);
+          }
 
           if (
             !isUntimedGame &&
@@ -1511,6 +1545,8 @@ const [blackTime, setBlackTime] =
     setDrawAgreed(false);
     setDrawOfferMessage(null);
     setIsEvaluatingDrawOffer(false);
+    setIsComputerDrawOfferOpen(false);
+    computerDrawOfferCooldownRef.current = 0;
     drawOfferEvaluationRef.current = {
       active: false,
       latestScore: null,
@@ -1550,6 +1586,34 @@ const [blackTime, setBlackTime] =
       `position fen ${game.fen()}`,
     );
     stockfishRef.current.send("go depth 12");
+  }
+
+  function handleAcceptComputerDrawOffer() {
+    if (!isComputerDrawOfferOpen || isGameOver) {
+      return;
+    }
+
+    stockfishThinkingRef.current = false;
+    stockfishRef.current?.send("stop");
+    stopClockTick();
+    stopSound("clock-warning");
+    stopSound("clock-timeout");
+    setActiveClock(null);
+    setPendingPromotion(null);
+    setIsComputerDrawOfferOpen(false);
+    setDrawAgreed(true);
+    setDrawOfferMessage(null);
+    setIsGameOverDialogClosed(false);
+    playSound("draw");
+  }
+
+  function handleDeclineComputerDrawOffer() {
+    if (!isComputerDrawOfferOpen || isGameOver) {
+      return;
+    }
+
+    setIsComputerDrawOfferOpen(false);
+    computerDrawOfferCooldownRef.current = 8;
   }
 
   function handleResign() {
@@ -1613,6 +1677,8 @@ const [blackTime, setBlackTime] =
     setDrawAgreed(false);
     setDrawOfferMessage(null);
     setIsEvaluatingDrawOffer(false);
+    setIsComputerDrawOfferOpen(false);
+    computerDrawOfferCooldownRef.current = 0;
     drawOfferEvaluationRef.current = {
       active: false,
       latestScore: null,
@@ -1652,6 +1718,8 @@ const [blackTime, setBlackTime] =
     setDrawAgreed(false);
     setDrawOfferMessage(null);
     setIsEvaluatingDrawOffer(false);
+    setIsComputerDrawOfferOpen(false);
+    computerDrawOfferCooldownRef.current = 0;
     drawOfferEvaluationRef.current = {
       active: false,
       latestScore: null,
@@ -1717,6 +1785,7 @@ setBlackTime(
     setResignedColor(null);
     setDrawAgreed(false);
     setDrawOfferMessage(null);
+    setIsComputerDrawOfferOpen(false);
 
     if (isUntimedGame || gameCopy.isGameOver()) {
       setActiveClock(null);
@@ -1906,7 +1975,9 @@ setBlackTime(
           isOpen: true,
           title: "Draw agreed",
           subtitle:
-            "The computer accepted your draw offer.",
+            drawOfferMessage === "Draw offer accepted."
+              ? "The computer accepted your draw offer."
+              : "You accepted the computer's draw offer.",
           score: "½–½",
           result: "draw" as const,
         }
@@ -1977,6 +2048,7 @@ setBlackTime(
     drawAgreed,
     isEvaluatingDrawOffer,
     drawOfferMessage,
+    isComputerDrawOfferOpen,
     canOfferDraw:
       hasGameStarted &&
       !isGameOver &&
@@ -1990,6 +2062,8 @@ setBlackTime(
     handleRematch,
     handleNewGame,
     handleOfferDraw,
+    handleAcceptComputerDrawOffer,
+    handleDeclineComputerDrawOffer,
     handleResign,
     handleUndo,
     handleFlipBoard,
