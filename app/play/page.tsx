@@ -59,6 +59,7 @@ export default function PlayPage() {
     onDrop,
     handlePromotionSelect,
     handleStartGame,
+    handleRematch,
     handleNewGame,
     handleResign,
     handleUndo,
@@ -119,6 +120,7 @@ export default function PlayPage() {
         score={gameOverDetails.score}
         result={gameOverDetails.result}
         onClose={handleCloseGameOverDialog}
+        onRematch={handleRematch}
         onNewGame={handleNewGame}
         onAnalysis={handleAnalysis}
         onShare={handleShare}

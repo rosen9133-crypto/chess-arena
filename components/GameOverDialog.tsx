@@ -11,6 +11,7 @@ type GameOverDialogProps = {
   score: string;
   result: GameResult;
   onClose: () => void;
+  onRematch: () => void;
   onNewGame: () => void;
   onAnalysis: () => void;
   onShare: () => void;
@@ -23,6 +24,7 @@ export default function GameOverDialog({
   score,
   result,
   onClose,
+  onRematch,
   onNewGame,
   onAnalysis,
   onShare,
@@ -87,10 +89,18 @@ export default function GameOverDialog({
           <div className="mt-8 grid gap-3">
             <button
               type="button"
-              onClick={onNewGame}
+              onClick={onRematch}
               className="rounded-xl bg-yellow-400 px-4 py-3.5 font-bold text-slate-950 transition hover:bg-yellow-300 active:scale-[0.98]"
             >
               🔄 Rematch
+            </button>
+
+            <button
+              type="button"
+              onClick={onNewGame}
+              className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-3.5 font-semibold text-white transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
+            >
+              ♟️ New Game
             </button>
 
             <button

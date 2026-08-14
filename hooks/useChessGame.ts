@@ -1453,6 +1453,58 @@ const [blackTime, setBlackTime] =
     playSound("lose");
   }
 
+  function handleRematch() {
+    if (!isGameOver) {
+      return;
+    }
+
+    const nextPlayerColor: ChessColor =
+      playerColor === "w" ? "b" : "w";
+
+    stockfishThinkingRef.current = false;
+    stockfishCandidatesRef.current.clear();
+    stockfishRef.current?.send("stop");
+    stockfishRef.current?.send("ucinewgame");
+    stockfishRef.current?.send("isready");
+
+    stopClockTick();
+    stopSound("clock-warning");
+    stopSound("clock-timeout");
+
+    clockWarningPlayedRef.current = {
+      w: false,
+      b: false,
+    };
+
+    const initialTime = getInitialTimeSeconds(
+      selectedTimeControl.initialMinutes,
+    );
+
+    const freshGame = new Chess();
+
+    latestGameRef.current = freshGame;
+    playerColorRef.current = nextPlayerColor;
+
+    setGame(freshGame);
+    setCurrentMoveIndex(0);
+    setPlayerColor(nextPlayerColor);
+    setBoardOrientation(
+      nextPlayerColor === "w"
+        ? "white"
+        : "black",
+    );
+    setIsAwaitingColorChoice(false);
+    setPendingPromotion(null);
+    setResignedColor(null);
+    setTimedOutColor(null);
+    setIsGameOverDialogClosed(false);
+    setWhiteTime(initialTime);
+    setBlackTime(initialTime);
+    setHasGameStarted(true);
+    lastClockUpdateRef.current = Date.now();
+    setActiveClock(isUntimedGame ? null : "w");
+  }
+
   function handleNewGame() {
     stockfishThinkingRef.current = false;
     stockfishRef.current?.send("stop");
@@ -1783,6 +1835,7 @@ setBlackTime(
     onDrop,
     handlePromotionSelect,
     handleStartGame,
+    handleRematch,
     handleNewGame,
     handleResign,
     handleUndo,
