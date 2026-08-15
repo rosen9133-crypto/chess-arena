@@ -128,6 +128,7 @@ type SavedGameState = {
   pendingPromotion: PendingPromotion | null;
   isAwaitingColorChoice: boolean;
   isGameOverDialogClosed: boolean;
+  hasRecordedGameResult?: boolean;
   savedAt: number;
 };
 
@@ -371,6 +372,9 @@ const [blackTime, setBlackTime] =
   const [hasRestoredSavedGame, setHasRestoredSavedGame] =
     useState(false);
 
+  const [hasRecordedGameResult, setHasRecordedGameResult] =
+    useState(false);
+
   const selectedStockfishDifficulty =
     getStockfishDifficulty(
       selectedStockfishDifficultyId,
@@ -522,6 +526,9 @@ const [blackTime, setBlackTime] =
       setIsGameOverDialogClosed(
         savedGame.isGameOverDialogClosed ?? false,
       );
+      setHasRecordedGameResult(
+        savedGame.hasRecordedGameResult ?? false,
+      );
       lastClockUpdateRef.current = Date.now();
     } catch (error) {
       console.error(
@@ -577,6 +584,7 @@ const [blackTime, setBlackTime] =
       pendingPromotion,
       isAwaitingColorChoice,
       isGameOverDialogClosed,
+      hasRecordedGameResult,
       savedAt: Date.now(),
     };
 
@@ -592,6 +600,7 @@ const [blackTime, setBlackTime] =
     game,
     hasGameStarted,
     hasRestoredSavedGame,
+    hasRecordedGameResult,
     isAwaitingColorChoice,
     isGameOverDialogClosed,
     pendingPromotion,
@@ -1553,6 +1562,7 @@ const [blackTime, setBlackTime] =
     };
     setTimedOutColor(null);
     setIsGameOverDialogClosed(false);
+    setHasRecordedGameResult(false);
     setWhiteTime(initialTime);
     setBlackTime(initialTime);
     setHasGameStarted(true);
@@ -1685,6 +1695,7 @@ const [blackTime, setBlackTime] =
     };
     setTimedOutColor(null);
     setIsGameOverDialogClosed(false);
+    setHasRecordedGameResult(false);
     setWhiteTime(initialTime);
     setBlackTime(initialTime);
     setHasGameStarted(true);
@@ -1725,6 +1736,7 @@ const [blackTime, setBlackTime] =
       latestScore: null,
     };
     setIsGameOverDialogClosed(false);
+    setHasRecordedGameResult(false);
     setWhiteTime(
   getInitialTimeSeconds(
     selectedTimeControl.initialMinutes,
@@ -1992,6 +2004,66 @@ setBlackTime(
   const shouldShowGameOverDialog =
     gameOverDetails.isOpen &&
     !isGameOverDialogClosed;
+
+  useEffect(() => {
+    if (
+      !hasRestoredSavedGame ||
+      !hasGameStarted ||
+      !isGameOver ||
+      hasRecordedGameResult
+    ) {
+      return;
+    }
+
+    const finalResult = gameOverDetails.result;
+
+    let result: "win" | "loss" | "draw";
+
+    if (finalResult === "draw") {
+      result = "draw";
+    } else if (
+      (finalResult === "white-win" && playerColor === "w") ||
+      (finalResult === "black-win" && playerColor === "b")
+    ) {
+      result = "win";
+    } else {
+      result = "loss";
+    }
+
+    setHasRecordedGameResult(true);
+
+    void fetch("/api/game-result", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ result }),
+    })
+      .then(async (response) => {
+        if (!response.ok) {
+          const message = await response.text();
+
+          throw new Error(
+            `Could not save game result (${response.status}): ${message}`,
+          );
+        }
+
+        return response.json();
+      })
+      .catch((error) => {
+        console.error(
+          "Could not save the Chess Arena game result:",
+          error,
+        );
+      });
+  }, [
+    gameOverDetails.result,
+    hasGameStarted,
+    hasRecordedGameResult,
+    hasRestoredSavedGame,
+    isGameOver,
+    playerColor,
+  ]);
 
   const shouldShowPromotionDialog =
     pendingPromotion !== null &&
