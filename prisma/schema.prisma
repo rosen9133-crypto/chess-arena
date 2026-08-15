@@ -11,11 +11,15 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
 model User {
   id        String   @id @default(cuid())
   username  String   @unique
   email     String   @unique
   password  String
   rating    Int      @default(1500)
+  wins      Int      @default(0)
+  losses    Int      @default(0)
+  draws     Int      @default(0)
   createdAt DateTime @default(now())
 }

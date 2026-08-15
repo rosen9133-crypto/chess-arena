@@ -19,6 +19,9 @@ export default async function DashboardPage() {
     select: {
       username: true,
       rating: true,
+      wins: true,
+      losses: true,
+      draws: true,
     },
   });
 
@@ -46,15 +49,15 @@ export default async function DashboardPage() {
         </p>
 
         <p>
-          <strong>🏆 Победи:</strong> 0
+          <strong>🏆 Победи:</strong> {user.wins}
         </p>
 
         <p>
-          <strong>❌ Загуби:</strong> 0
+          <strong>❌ Загуби:</strong> {user.losses}
         </p>
 
         <p>
-          <strong>🤝 Ремита:</strong> 0
+          <strong>🤝 Ремита:</strong> {user.draws}
         </p>
 
         <Link
