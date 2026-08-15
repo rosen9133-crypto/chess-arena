@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -56,9 +57,12 @@ export default async function DashboardPage() {
           <strong>🤝 Ремита:</strong> 0
         </p>
 
-        <button className="w-full bg-yellow-400 text-black font-bold py-3 rounded hover:bg-yellow-500">
+        <Link
+          href="/play"
+          className="block w-full bg-yellow-400 text-black text-center font-bold py-3 rounded hover:bg-yellow-500"
+        >
           ▶ Play Chess
-        </button>
+        </Link>
 
         <LogoutButton />
       </div>
