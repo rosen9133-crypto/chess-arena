@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import LogoutButton from "@/components/LogoutButton";
 
 export default async function DashboardPage() {
   const session = await auth();
@@ -58,6 +59,8 @@ export default async function DashboardPage() {
         <button className="w-full bg-yellow-400 text-black font-bold py-3 rounded hover:bg-yellow-500">
           ▶ Play Chess
         </button>
+
+        <LogoutButton />
       </div>
     </div>
   );
