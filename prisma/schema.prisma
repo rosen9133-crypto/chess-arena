@@ -13,13 +13,28 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  username  String   @unique
-  email     String   @unique
-  password  String
-  rating    Int      @default(1500)
-  wins      Int      @default(0)
-  losses    Int      @default(0)
-  draws     Int      @default(0)
+  id       String @id @default(cuid())
+  username String @unique
+  email    String @unique
+  password String
+
+  rating Int @default(1500)
+
+  bulletRating          Float @default(1500)
+  bulletRatingDeviation Float @default(350)
+  bulletVolatility      Float @default(0.06)
+
+  blitzRating          Float @default(1500)
+  blitzRatingDeviation Float @default(350)
+  blitzVolatility      Float @default(0.06)
+
+  rapidRating          Float @default(1500)
+  rapidRatingDeviation Float @default(350)
+  rapidVolatility      Float @default(0.06)
+
+  wins   Int @default(0)
+  losses Int @default(0)
+  draws  Int @default(0)
+
   createdAt DateTime @default(now())
 }
