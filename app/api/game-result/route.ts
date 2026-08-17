@@ -11,7 +11,7 @@ export async function POST(request: Request) {
   if (!session?.user?.email) {
     return NextResponse.json(
       { error: "Unauthorized" },
-      { status: 401 },
+      { status: 401 }
     );
   }
 
@@ -22,7 +22,7 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json(
       { error: "Invalid request body" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
   ) {
     return NextResponse.json(
       { error: "Invalid game result" },
-      { status: 400 },
+      { status: 400 }
     );
   }
 
@@ -51,7 +51,7 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json(
       { error: "User not found" },
-      { status: 404 },
+      { status: 404 }
     );
   }
 
