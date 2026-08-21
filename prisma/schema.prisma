@@ -57,6 +57,8 @@ model User {
   gamesAsWhite Game[] @relation("WhitePlayer")
   gamesAsBlack Game[] @relation("BlackPlayer")
 
+  matchmakingQueue MatchmakingQueue?
+
   createdAt DateTime @default(now())
 }
 
@@ -78,6 +80,13 @@ model Game {
   initialTimeSeconds Int
   incrementSeconds   Int @default(0)
 
+  whiteTimeMs   Int @default(0)
+  blackTimeMs   Int @default(0)
+  clockStartedAt DateTime?
+
+  fen String @default("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")
+  pgn String @default("")
+
   startedAt DateTime @default(now())
   endedAt   DateTime?
 
@@ -85,4 +94,21 @@ model Game {
   @@index([blackPlayerId])
   @@index([status])
   @@index([startedAt])
+}
+
+model MatchmakingQueue {
+  id String @id @default(cuid())
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  timeControl        GameTimeControl
+  initialTimeSeconds Int
+  incrementSeconds   Int @default(0)
+  rated              Boolean @default(true)
+
+  createdAt DateTime @default(now())
+
+  @@index([timeControl, initialTimeSeconds, incrementSeconds, rated])
+  @@index([createdAt])
 }

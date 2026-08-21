@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Game" ADD COLUMN     "blackTimeMs" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "clockStartedAt" TIMESTAMP(3),
+ADD COLUMN     "whiteTimeMs" INTEGER NOT NULL DEFAULT 0;
