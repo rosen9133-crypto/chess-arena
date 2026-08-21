@@ -24,6 +24,13 @@ enum GameResult {
   DRAW
 }
 
+enum GameEndReason {
+  CHECKMATE
+  DRAW
+  RESIGNATION
+  TIMEOUT
+}
+
 enum GameTimeControl {
   BULLET
   BLITZ
@@ -71,8 +78,9 @@ model Game {
   whitePlayer User @relation("WhitePlayer", fields: [whitePlayerId], references: [id])
   blackPlayer User @relation("BlackPlayer", fields: [blackPlayerId], references: [id])
 
-  status GameStatus @default(IN_PROGRESS)
-  result GameResult?
+  status    GameStatus     @default(IN_PROGRESS)
+  result    GameResult?
+  endReason GameEndReason?
 
   timeControl GameTimeControl
   rated       Boolean @default(true)
@@ -80,8 +88,8 @@ model Game {
   initialTimeSeconds Int
   incrementSeconds   Int @default(0)
 
-  whiteTimeMs   Int @default(0)
-  blackTimeMs   Int @default(0)
+  whiteTimeMs    Int @default(0)
+  blackTimeMs    Int @default(0)
   clockStartedAt DateTime?
 
   fen String @default("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1")

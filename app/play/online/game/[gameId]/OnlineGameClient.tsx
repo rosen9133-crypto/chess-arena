@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Chessboard } from "react-chessboard";
 
 import OnlineGameOverDialog from "@/components/OnlineGameOverDialog";
+import OnlineResignDialog from "@/components/OnlineResignDialog";
 import PromotionDialog from "@/components/PromotionDialog";
 import { useOnlineChessGame } from "@/hooks/useOnlineChessGame";
 
@@ -109,7 +110,9 @@ export default function OnlineGameClient({
     isGameOver,
     status,
     result,
+    endReason,
     isPlayerTurn,
+    isResigning,
     boardOrientation,
     squareStyles,
     shouldShowPromotionDialog,
@@ -121,6 +124,7 @@ export default function OnlineGameClient({
     isClockRunning,
 
     onDrop,
+    resignGame,
     handlePromotionSelect,
     handleFlipBoard,
   } = useOnlineChessGame({
@@ -162,6 +166,9 @@ export default function OnlineGameClient({
   const [isGameOverDialogClosed, setIsGameOverDialogClosed] =
     useState(false);
 
+  const [isResignDialogOpen, setIsResignDialogOpen] =
+    useState(false);
+
   const authoritativeResult =
     result === "WHITE_WIN" ||
     result === "BLACK_WIN" ||
@@ -169,11 +176,24 @@ export default function OnlineGameClient({
       ? result
       : null;
 
-  const gameOverReason = displayGame.isCheckmate()
-    ? "Checkmate"
-    : authoritativeResult === "DRAW"
-      ? "Draw"
-      : "Game finished";
+  const gameOverReason =
+    endReason === "CHECKMATE"
+      ? "Checkmate"
+      : endReason === "DRAW"
+        ? "Draw"
+        : endReason === "RESIGNATION"
+          ? "Resignation"
+          : endReason === "TIMEOUT"
+            ? "Time out"
+            : "Game finished";
+
+  async function handleResignConfirm() {
+    const resigned = await resignGame();
+
+    if (resigned) {
+      setIsResignDialogOpen(false);
+    }
+  }
 
   const finishedResultLabel =
     authoritativeResult === "WHITE_WIN"
@@ -207,6 +227,15 @@ export default function OnlineGameClient({
         result={authoritativeResult}
         reason={gameOverReason}
         onClose={() => setIsGameOverDialogClosed(true)}
+      />
+
+      <OnlineResignDialog
+        isOpen={isResignDialogOpen}
+        isSubmitting={isResigning}
+        onCancel={() => setIsResignDialogOpen(false)}
+        onConfirm={() => {
+          void handleResignConfirm();
+        }}
       />
 
       <section className="mt-8">
@@ -313,6 +342,17 @@ export default function OnlineGameClient({
           >
             🔄 Flip Board
           </button>
+
+          {!isGameOver && (
+            <button
+              type="button"
+              onClick={() => setIsResignDialogOpen(true)}
+              disabled={isResigning}
+              className="mt-3 w-full rounded-xl border border-red-400/40 bg-red-500/10 px-5 py-3 font-bold text-red-300 transition hover:border-red-400/70 hover:bg-red-500/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              🏳️ Resign
+            </button>
+          )}
 
           <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-center text-sm font-semibold text-emerald-200">
             ● Online game synchronized

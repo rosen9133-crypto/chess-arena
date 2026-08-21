@@ -39,6 +39,7 @@ type OnlineGameResponse = {
     id: string;
     status: string;
     result: string | null;
+    endReason: string | null;
     fen: string;
     pgn: string;
     whiteTimeMs: number;
@@ -87,6 +88,9 @@ export function useOnlineChessGame({
   const [isSendingMove, setIsSendingMove] =
     useState(false);
 
+  const [isResigning, setIsResigning] =
+    useState(false);
+
   const [syncError, setSyncError] =
     useState<string | null>(null);
 
@@ -111,10 +115,15 @@ export function useOnlineChessGame({
   const [result, setResult] =
     useState<OnlineGameResult>(null);
 
+  const [endReason, setEndReason] =
+    useState<string | null>(null);
+
   const gameRef = useRef(game);
   const currentMoveIndexRef =
     useRef(currentMoveIndex);
   const isSendingMoveRef =
+    useRef(false);
+  const isResigningRef =
     useRef(false);
   const realtimeChannelRef =
     useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -180,6 +189,7 @@ export function useOnlineChessGame({
     !isGameOver &&
     isViewingLatestMove &&
     !isSendingMove &&
+    !isResigning &&
     game.turn() === playerColor;
 
   const {
@@ -337,6 +347,7 @@ export function useOnlineChessGame({
 
         setStatus(data.game.status);
         setResult(data.game.result);
+        setEndReason(data.game.endReason);
 
         const authoritativeGame =
           createChessFromServerState(
@@ -420,6 +431,7 @@ export function useOnlineChessGame({
   }) {
     if (
       isSendingMoveRef.current ||
+      isResigningRef.current ||
       isGameOver ||
       !isViewingLatestMove ||
       gameRef.current.turn() !==
@@ -522,6 +534,7 @@ export function useOnlineChessGame({
 
       setStatus(data.game.status);
       setResult(data.game.result);
+      setEndReason(data.game.endReason);
 
       applyServerClock(
         data.game.whiteTimeMs,
@@ -586,6 +599,111 @@ export function useOnlineChessGame({
     }
   }
 
+  async function resignGame() {
+    if (
+      isResigningRef.current ||
+      isSendingMoveRef.current ||
+      isGameOver
+    ) {
+      return false;
+    }
+
+    isResigningRef.current = true;
+    setIsResigning(true);
+    setSyncError(null);
+
+    try {
+      const response = await fetch(
+        "/api/online-resign",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            gameId,
+          }),
+        },
+      );
+
+      const data =
+        (await response.json()) as OnlineGameResponse;
+
+      if (
+        !response.ok ||
+        !data.success ||
+        !data.game
+      ) {
+        throw new Error(
+          data.error ??
+            "The game could not be resigned.",
+        );
+      }
+
+      const authoritativeGame =
+        createChessFromServerState(
+          data.game.fen,
+          data.game.pgn,
+        );
+
+      applyServerGame(
+        data.game.fen,
+        data.game.pgn,
+      );
+
+      setStatus(data.game.status);
+      setResult(data.game.result);
+      setEndReason(data.game.endReason);
+
+      applyServerClock(
+        data.game.whiteTimeMs,
+        data.game.blackTimeMs,
+        data.game.clockStartedAt,
+        authoritativeGame.turn(),
+      );
+
+      setSyncError(null);
+
+      const realtimeChannel = realtimeChannelRef.current;
+
+      if (realtimeChannel) {
+        try {
+          await realtimeChannel.send({
+            type: "broadcast",
+            event: "game-updated",
+            payload: { gameId },
+          });
+        } catch (error) {
+          console.error(
+            "ONLINE RESIGN REALTIME BROADCAST ERROR:",
+            error,
+          );
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        "ONLINE RESIGN ERROR:",
+        error,
+      );
+
+      setSyncError(
+        error instanceof Error
+          ? error.message
+          : "The game could not be resigned.",
+      );
+
+      await fetchGameState();
+
+      return false;
+    } finally {
+      isResigningRef.current = false;
+      setIsResigning(false);
+    }
+  }
+
   function isPromotionMove(
     sourceSquare: string,
     targetSquare: string,
@@ -625,6 +743,7 @@ export function useOnlineChessGame({
   ) {
     if (
       isSendingMoveRef.current ||
+      isResigningRef.current ||
       isGameOver ||
       pendingPromotion ||
       !isViewingLatestMove ||
@@ -774,9 +893,11 @@ export function useOnlineChessGame({
     isGameOver,
     status,
     result,
+    endReason,
     isPlayerTurn,
     isSyncing,
     isSendingMove,
+    isResigning,
     syncError,
     whiteTime,
     blackTime,
@@ -793,6 +914,7 @@ export function useOnlineChessGame({
     promotionColor,
 
     onDrop,
+    resignGame,
     handlePromotionSelect,
     handleFlipBoard,
     setBoardOrientation,

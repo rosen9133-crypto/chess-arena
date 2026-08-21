@@ -61,6 +61,7 @@ export async function GET(request: Request) {
         id: true,
         status: true,
         result: true,
+        endReason: true,
         fen: true,
         pgn: true,
         whitePlayerId: true,
@@ -158,6 +159,7 @@ export async function GET(request: Request) {
           id: game.id,
           status: game.status,
           result: game.result,
+          endReason: game.endReason,
           fen: game.fen,
           pgn: game.pgn,
           timeControl: game.timeControl,
@@ -271,6 +273,7 @@ export async function POST(request: Request) {
           id: true,
           status: true,
           result: true,
+          endReason: true,
           fen: true,
           pgn: true,
           whitePlayerId: true,
@@ -471,6 +474,11 @@ export async function POST(request: Request) {
           ),
           status: finished ? "FINISHED" : "IN_PROGRESS",
           result: gameResult,
+          endReason: isCheckmate
+            ? "CHECKMATE"
+            : isDraw
+              ? "DRAW"
+              : null,
           endedAt: finished ? now : null,
           clockStartedAt: finished ? null : now,
         },
@@ -478,6 +486,7 @@ export async function POST(request: Request) {
           id: true,
           status: true,
           result: true,
+          endReason: true,
           fen: true,
           pgn: true,
           whiteTimeMs: true,
