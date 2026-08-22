@@ -1,5 +1,3 @@
-"use client";
-
 import {
   useCallback,
   useEffect,
@@ -124,6 +122,8 @@ export function useOnlineChessGame({
   const isSendingMoveRef =
     useRef(false);
   const isResigningRef =
+    useRef(false);
+  const timeoutRefreshRequestedRef =
     useRef(false);
   const realtimeChannelRef =
     useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -349,6 +349,15 @@ export function useOnlineChessGame({
         setResult(data.game.result);
         setEndReason(data.game.endReason);
 
+        if (
+          data.game.status === "IN_PROGRESS" &&
+          data.game.clockStartedAt &&
+          data.game.whiteTimeMs > 0 &&
+          data.game.blackTimeMs > 0
+        ) {
+          timeoutRefreshRequestedRef.current = false;
+        }
+
         const authoritativeGame =
           createChessFromServerState(
             data.game.fen,
@@ -376,6 +385,36 @@ export function useOnlineChessGame({
         setIsSyncing(false);
       }
     }, [applyServerClock, applyServerGame, gameId]);
+
+  useEffect(() => {
+    if (
+      isGameOver ||
+      !clockStartedAt ||
+      !activeClock ||
+      timeoutRefreshRequestedRef.current
+    ) {
+      return;
+    }
+
+    const activeTimeMs =
+      activeClock === "w"
+        ? displayedWhiteTimeMs
+        : displayedBlackTimeMs;
+
+    if (activeTimeMs > 0) {
+      return;
+    }
+
+    timeoutRefreshRequestedRef.current = true;
+    void fetchGameState();
+  }, [
+    activeClock,
+    clockStartedAt,
+    displayedBlackTimeMs,
+    displayedWhiteTimeMs,
+    fetchGameState,
+    isGameOver,
+  ]);
 
   useEffect(() => {
     void fetchGameState();

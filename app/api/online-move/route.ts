@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       );
     }
 
-    const game = await prisma.game.findUnique({
+    let game = await prisma.game.findUnique({
       where: {
         id: gameId,
       },
@@ -140,17 +140,116 @@ export async function GET(request: Request) {
           )
         : 0;
 
-    const currentWhiteTimeMs = Math.max(
+    let currentWhiteTimeMs = Math.max(
       0,
       game.whiteTimeMs -
         (activeColor === "w" ? elapsedMs : 0),
     );
 
-    const currentBlackTimeMs = Math.max(
+    let currentBlackTimeMs = Math.max(
       0,
       game.blackTimeMs -
         (activeColor === "b" ? elapsedMs : 0),
     );
+
+    let responseClockStartedAt =
+      activeColor && game.clockStartedAt
+        ? responseNow
+        : game.clockStartedAt;
+
+    const hasTimedOut =
+      activeColor === "w"
+        ? currentWhiteTimeMs <= 0
+        : activeColor === "b"
+          ? currentBlackTimeMs <= 0
+          : false;
+
+    if (
+      game.status === "IN_PROGRESS" &&
+      activeColor &&
+      hasTimedOut
+    ) {
+      await prisma.game.updateMany({
+        where: {
+          id: game.id,
+          status: "IN_PROGRESS",
+          fen: game.fen,
+          pgn: game.pgn,
+          whiteTimeMs: game.whiteTimeMs,
+          blackTimeMs: game.blackTimeMs,
+          clockStartedAt: game.clockStartedAt,
+        },
+        data: {
+          status: "FINISHED",
+          result:
+            activeColor === "w"
+              ? "BLACK_WIN"
+              : "WHITE_WIN",
+          endReason: "TIMEOUT",
+          whiteTimeMs:
+            activeColor === "w"
+              ? 0
+              : Math.round(currentWhiteTimeMs),
+          blackTimeMs:
+            activeColor === "b"
+              ? 0
+              : Math.round(currentBlackTimeMs),
+          clockStartedAt: null,
+          endedAt: responseNow,
+        },
+      });
+
+      const latestGame = await prisma.game.findUnique({
+        where: {
+          id: game.id,
+        },
+        select: {
+          id: true,
+          status: true,
+          result: true,
+          endReason: true,
+          fen: true,
+          pgn: true,
+          whitePlayerId: true,
+          blackPlayerId: true,
+          timeControl: true,
+          rated: true,
+          initialTimeSeconds: true,
+          incrementSeconds: true,
+          whiteTimeMs: true,
+          blackTimeMs: true,
+          clockStartedAt: true,
+          startedAt: true,
+          endedAt: true,
+
+          whitePlayer: {
+            select: {
+              id: true,
+              username: true,
+            },
+          },
+
+          blackPlayer: {
+            select: {
+              id: true,
+              username: true,
+            },
+          },
+        },
+      });
+
+      if (!latestGame) {
+        return NextResponse.json(
+          { error: "Game not found" },
+          { status: 404 },
+        );
+      }
+
+      game = latestGame;
+      currentWhiteTimeMs = latestGame.whiteTimeMs;
+      currentBlackTimeMs = latestGame.blackTimeMs;
+      responseClockStartedAt = latestGame.clockStartedAt;
+    }
 
     return NextResponse.json(
       {
@@ -168,10 +267,7 @@ export async function GET(request: Request) {
           incrementSeconds: game.incrementSeconds,
           whiteTimeMs: Math.round(currentWhiteTimeMs),
           blackTimeMs: Math.round(currentBlackTimeMs),
-          clockStartedAt:
-            activeColor && game.clockStartedAt
-              ? responseNow
-              : game.clockStartedAt,
+          clockStartedAt: responseClockStartedAt,
           startedAt: game.startedAt,
           endedAt: game.endedAt,
           whitePlayer: game.whitePlayer,
@@ -398,9 +494,85 @@ export async function POST(request: Request) {
         currentPlayerTimeMs - elapsedMs;
 
       if (remainingBeforeIncrement <= 0) {
+        const timeoutUpdate = await tx.game.updateMany({
+          where: {
+            id: game.id,
+            status: "IN_PROGRESS",
+            fen: game.fen,
+            pgn: game.pgn,
+            whiteTimeMs: game.whiteTimeMs,
+            blackTimeMs: game.blackTimeMs,
+            clockStartedAt: game.clockStartedAt,
+          },
+          data: {
+            status: "FINISHED",
+            result:
+              movingColor === "w"
+                ? "BLACK_WIN"
+                : "WHITE_WIN",
+            endReason: "TIMEOUT",
+            whiteTimeMs:
+              movingColor === "w"
+                ? 0
+                : game.whiteTimeMs,
+            blackTimeMs:
+              movingColor === "b"
+                ? 0
+                : game.blackTimeMs,
+            clockStartedAt: null,
+            endedAt: now,
+          },
+        });
+
+        if (timeoutUpdate.count === 0) {
+          return {
+            error: "Game state changed",
+            status: 409,
+          } as const;
+        }
+
+        const timeoutGame = await tx.game.findUnique({
+          where: {
+            id: game.id,
+          },
+          select: {
+            id: true,
+            status: true,
+            result: true,
+            endReason: true,
+            fen: true,
+            pgn: true,
+            whiteTimeMs: true,
+            blackTimeMs: true,
+            clockStartedAt: true,
+
+            whitePlayer: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
+
+            blackPlayer: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
+          },
+        });
+
+        if (!timeoutGame) {
+          return {
+            error: "Game not found",
+            status: 404,
+          } as const;
+        }
+
         return {
-          error: "Your time has expired",
-          status: 409,
+          success: true,
+          move: null,
+          game: timeoutGame,
         } as const;
       }
 

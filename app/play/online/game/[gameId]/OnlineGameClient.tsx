@@ -13,6 +13,10 @@ type ChessColor = "w" | "b";
 type OnlineGameClientProps = {
   gameId: string;
   playerColor: ChessColor;
+  timeControlLabel: string;
+  category: string;
+  rated: boolean;
+  initialStatus: string;
   whitePlayer: {
     id: string;
     username: string;
@@ -22,6 +26,36 @@ type OnlineGameClientProps = {
     username: string;
   };
 };
+
+type GameInfoRowProps = {
+  label: string;
+  value: string;
+  highlight?: boolean;
+};
+
+function GameInfoRow({
+  label,
+  value,
+  highlight = false,
+}: GameInfoRowProps) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-slate-800 py-3 last:border-b-0">
+      <span className="text-slate-400">
+        {label}
+      </span>
+
+      <strong
+        className={`text-right [overflow-wrap:anywhere] ${
+          highlight
+            ? "text-yellow-400"
+            : "text-slate-50"
+        }`}
+      >
+        {value}
+      </strong>
+    </div>
+  );
+}
 
 function formatClockTime(seconds: number) {
   const safeSeconds = Math.max(0, seconds);
@@ -101,6 +135,10 @@ function PlayerClock({
 export default function OnlineGameClient({
   gameId,
   playerColor,
+  timeControlLabel,
+  category,
+  rated,
+  initialStatus,
   whitePlayer,
   blackPlayer,
 }: OnlineGameClientProps) {
@@ -154,6 +192,12 @@ export default function OnlineGameClient({
 
   const opponentColor: ChessColor =
     playerColor === "w" ? "b" : "w";
+
+  const currentUserColor =
+    playerColor === "w" ? "White" : "Black";
+
+  const liveStatus =
+    status ?? initialStatus;
 
   const isCurrentPlayerClockActive =
     isClockRunning &&
@@ -237,6 +281,39 @@ export default function OnlineGameClient({
           void handleResignConfirm();
         }}
       />
+
+      <div className="mt-5 rounded-2xl border border-slate-700/70 bg-slate-950/60 p-5">
+        <GameInfoRow
+          label="You are playing"
+          value={currentUserColor}
+          highlight
+        />
+
+        <GameInfoRow
+          label="Time Control"
+          value={timeControlLabel}
+        />
+
+        <GameInfoRow
+          label="Category"
+          value={category}
+        />
+
+        <GameInfoRow
+          label="Mode"
+          value={rated ? "Rated" : "Casual"}
+        />
+
+        <GameInfoRow
+          label="Status"
+          value={liveStatus.replaceAll("_", " ")}
+        />
+
+        <GameInfoRow
+          label="Game ID"
+          value={gameId}
+        />
+      </div>
 
       <section className="mt-8">
         <div className="mx-auto w-full max-w-[620px]">
