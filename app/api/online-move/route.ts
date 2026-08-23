@@ -73,6 +73,8 @@ export async function GET(request: Request) {
         whiteTimeMs: true,
         blackTimeMs: true,
         clockStartedAt: true,
+        drawOfferBy: true,
+        drawOfferedAt: true,
         startedAt: true,
         endedAt: true,
 
@@ -195,6 +197,8 @@ export async function GET(request: Request) {
               ? 0
               : Math.round(currentBlackTimeMs),
           clockStartedAt: null,
+          drawOfferBy: null,
+          drawOfferedAt: null,
           endedAt: responseNow,
         },
       });
@@ -219,6 +223,8 @@ export async function GET(request: Request) {
           whiteTimeMs: true,
           blackTimeMs: true,
           clockStartedAt: true,
+          drawOfferBy: true,
+          drawOfferedAt: true,
           startedAt: true,
           endedAt: true,
 
@@ -268,6 +274,8 @@ export async function GET(request: Request) {
           whiteTimeMs: Math.round(currentWhiteTimeMs),
           blackTimeMs: Math.round(currentBlackTimeMs),
           clockStartedAt: responseClockStartedAt,
+          drawOfferBy: game.drawOfferBy,
+          drawOfferedAt: game.drawOfferedAt,
           startedAt: game.startedAt,
           endedAt: game.endedAt,
           whitePlayer: game.whitePlayer,
@@ -378,6 +386,8 @@ export async function POST(request: Request) {
           whiteTimeMs: true,
           blackTimeMs: true,
           clockStartedAt: true,
+          drawOfferBy: true,
+          drawOfferedAt: true,
 
           whitePlayer: {
             select: {
@@ -520,6 +530,8 @@ export async function POST(request: Request) {
                 ? 0
                 : game.blackTimeMs,
             clockStartedAt: null,
+            drawOfferBy: null,
+            drawOfferedAt: null,
             endedAt: now,
           },
         });
@@ -545,6 +557,8 @@ export async function POST(request: Request) {
             whiteTimeMs: true,
             blackTimeMs: true,
             clockStartedAt: true,
+            drawOfferBy: true,
+            drawOfferedAt: true,
 
             whitePlayer: {
               select: {
@@ -619,6 +633,15 @@ export async function POST(request: Request) {
 
       const finished = isCheckmate || isDraw;
 
+      const movingPlayerDrawColor =
+        movingColor === "w"
+          ? ("WHITE" as const)
+          : ("BLACK" as const);
+
+      const shouldDeclineDrawOffer =
+        game.drawOfferBy !== null &&
+        game.drawOfferBy !== movingPlayerDrawColor;
+
       const gameResult =
         isCheckmate
           ? movingColor === "w"
@@ -632,6 +655,7 @@ export async function POST(request: Request) {
         where: {
           id: game.id,
           status: "IN_PROGRESS",
+          drawOfferBy: game.drawOfferBy,
         },
         data: {
           fen: chess.fen(),
@@ -653,6 +677,14 @@ export async function POST(request: Request) {
               : null,
           endedAt: finished ? now : null,
           clockStartedAt: finished ? null : now,
+          drawOfferBy:
+            finished || shouldDeclineDrawOffer
+              ? null
+              : game.drawOfferBy,
+          drawOfferedAt:
+            finished || shouldDeclineDrawOffer
+              ? null
+              : game.drawOfferedAt,
         },
         select: {
           id: true,
@@ -664,6 +696,8 @@ export async function POST(request: Request) {
           whiteTimeMs: true,
           blackTimeMs: true,
           clockStartedAt: true,
+          drawOfferBy: true,
+          drawOfferedAt: true,
 
           whitePlayer: {
             select: {

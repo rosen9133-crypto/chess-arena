@@ -24,6 +24,8 @@ type ChessColor = "w" | "b";
 
 type OnlineGameStatus = string;
 type OnlineGameResult = string | null;
+type OnlineDrawOfferBy = "WHITE" | "BLACK" | null;
+type OnlineDrawAction = "OFFER" | "ACCEPT" | "DECLINE";
 
 type UseOnlineChessGameOptions = {
   gameId: string;
@@ -43,6 +45,8 @@ type OnlineGameResponse = {
     whiteTimeMs: number;
     blackTimeMs: number;
     clockStartedAt: string | null;
+    drawOfferBy?: OnlineDrawOfferBy;
+    drawOfferedAt?: string | null;
   };
 };
 
@@ -89,6 +93,9 @@ export function useOnlineChessGame({
   const [isResigning, setIsResigning] =
     useState(false);
 
+  const [isProcessingDraw, setIsProcessingDraw] =
+    useState(false);
+
   const [syncError, setSyncError] =
     useState<string | null>(null);
 
@@ -116,12 +123,20 @@ export function useOnlineChessGame({
   const [endReason, setEndReason] =
     useState<string | null>(null);
 
+  const [drawOfferBy, setDrawOfferBy] =
+    useState<OnlineDrawOfferBy>(null);
+
+  const [drawOfferedAt, setDrawOfferedAt] =
+    useState<string | null>(null);
+
   const gameRef = useRef(game);
   const currentMoveIndexRef =
     useRef(currentMoveIndex);
   const isSendingMoveRef =
     useRef(false);
   const isResigningRef =
+    useRef(false);
+  const isProcessingDrawRef =
     useRef(false);
   const timeoutRefreshRequestedRef =
     useRef(false);
@@ -190,6 +205,7 @@ export function useOnlineChessGame({
     isViewingLatestMove &&
     !isSendingMove &&
     !isResigning &&
+    !isProcessingDraw &&
     game.turn() === playerColor;
 
   const {
@@ -348,6 +364,8 @@ export function useOnlineChessGame({
         setStatus(data.game.status);
         setResult(data.game.result);
         setEndReason(data.game.endReason);
+        setDrawOfferBy(data.game.drawOfferBy ?? null);
+        setDrawOfferedAt(data.game.drawOfferedAt ?? null);
 
         if (
           data.game.status === "IN_PROGRESS" &&
@@ -471,6 +489,7 @@ export function useOnlineChessGame({
     if (
       isSendingMoveRef.current ||
       isResigningRef.current ||
+      isProcessingDrawRef.current ||
       isGameOver ||
       !isViewingLatestMove ||
       gameRef.current.turn() !==
@@ -574,6 +593,8 @@ export function useOnlineChessGame({
       setStatus(data.game.status);
       setResult(data.game.result);
       setEndReason(data.game.endReason);
+      setDrawOfferBy(data.game.drawOfferBy ?? null);
+      setDrawOfferedAt(data.game.drawOfferedAt ?? null);
 
       applyServerClock(
         data.game.whiteTimeMs,
@@ -642,6 +663,7 @@ export function useOnlineChessGame({
     if (
       isResigningRef.current ||
       isSendingMoveRef.current ||
+      isProcessingDrawRef.current ||
       isGameOver
     ) {
       return false;
@@ -694,6 +716,8 @@ export function useOnlineChessGame({
       setStatus(data.game.status);
       setResult(data.game.result);
       setEndReason(data.game.endReason);
+      setDrawOfferBy(data.game.drawOfferBy ?? null);
+      setDrawOfferedAt(data.game.drawOfferedAt ?? null);
 
       applyServerClock(
         data.game.whiteTimeMs,
@@ -743,6 +767,130 @@ export function useOnlineChessGame({
     }
   }
 
+  async function processDrawAction(
+    action: OnlineDrawAction,
+  ) {
+    if (
+      isProcessingDrawRef.current ||
+      isSendingMoveRef.current ||
+      isResigningRef.current ||
+      isGameOver
+    ) {
+      return false;
+    }
+
+    isProcessingDrawRef.current = true;
+    setIsProcessingDraw(true);
+    setSyncError(null);
+
+    try {
+      const response = await fetch(
+        "/api/online-draw",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            gameId,
+            action,
+          }),
+        },
+      );
+
+      const data =
+        (await response.json()) as OnlineGameResponse;
+
+      if (
+        !response.ok ||
+        !data.success ||
+        !data.game
+      ) {
+        throw new Error(
+          data.error ??
+            "The draw action could not be completed.",
+        );
+      }
+
+      const authoritativeGame =
+        createChessFromServerState(
+          data.game.fen,
+          data.game.pgn,
+        );
+
+      applyServerGame(
+        data.game.fen,
+        data.game.pgn,
+      );
+
+      setStatus(data.game.status);
+      setResult(data.game.result);
+      setEndReason(data.game.endReason);
+      setDrawOfferBy(data.game.drawOfferBy ?? null);
+      setDrawOfferedAt(data.game.drawOfferedAt ?? null);
+
+      applyServerClock(
+        data.game.whiteTimeMs,
+        data.game.blackTimeMs,
+        data.game.clockStartedAt,
+        authoritativeGame.turn(),
+      );
+
+      setSyncError(null);
+
+      const realtimeChannel =
+        realtimeChannelRef.current;
+
+      if (realtimeChannel) {
+        try {
+          await realtimeChannel.send({
+            type: "broadcast",
+            event: "game-updated",
+            payload: { gameId },
+          });
+        } catch (error) {
+          console.error(
+            "ONLINE DRAW REALTIME BROADCAST ERROR:",
+            error,
+          );
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        "ONLINE DRAW ERROR:",
+        error,
+      );
+
+      setSyncError(
+        error instanceof Error
+          ? error.message
+          : "The draw action could not be completed.",
+      );
+
+      await fetchGameState();
+
+      return false;
+    } finally {
+      isProcessingDrawRef.current = false;
+      setIsProcessingDraw(false);
+    }
+  }
+
+  function offerDraw() {
+    return processDrawAction("OFFER");
+  }
+
+  function acceptDraw() {
+    return processDrawAction("ACCEPT");
+  }
+
+  function declineDraw() {
+    return processDrawAction("DECLINE");
+  }
+
   function isPromotionMove(
     sourceSquare: string,
     targetSquare: string,
@@ -783,6 +931,7 @@ export function useOnlineChessGame({
     if (
       isSendingMoveRef.current ||
       isResigningRef.current ||
+      isProcessingDrawRef.current ||
       isGameOver ||
       pendingPromotion ||
       !isViewingLatestMove ||
@@ -933,10 +1082,13 @@ export function useOnlineChessGame({
     status,
     result,
     endReason,
+    drawOfferBy,
+    drawOfferedAt,
     isPlayerTurn,
     isSyncing,
     isSendingMove,
     isResigning,
+    isProcessingDraw,
     syncError,
     whiteTime,
     blackTime,
@@ -954,6 +1106,9 @@ export function useOnlineChessGame({
 
     onDrop,
     resignGame,
+    offerDraw,
+    acceptDraw,
+    declineDraw,
     handlePromotionSelect,
     handleFlipBoard,
     setBoardOrientation,

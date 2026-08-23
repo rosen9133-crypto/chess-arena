@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Chessboard } from "react-chessboard";
 
+import OnlineDrawDialog from "@/components/OnlineDrawDialog";
 import OnlineGameOverDialog from "@/components/OnlineGameOverDialog";
 import OnlineResignDialog from "@/components/OnlineResignDialog";
 import PromotionDialog from "@/components/PromotionDialog";
@@ -149,8 +150,11 @@ export default function OnlineGameClient({
     status,
     result,
     endReason,
+    drawOfferBy,
+    drawOfferedAt,
     isPlayerTurn,
     isResigning,
+    isProcessingDraw,
     boardOrientation,
     squareStyles,
     shouldShowPromotionDialog,
@@ -163,6 +167,9 @@ export default function OnlineGameClient({
 
     onDrop,
     resignGame,
+    offerDraw,
+    acceptDraw,
+    declineDraw,
     handlePromotionSelect,
     handleFlipBoard,
   } = useOnlineChessGame({
@@ -213,6 +220,31 @@ export default function OnlineGameClient({
   const [isResignDialogOpen, setIsResignDialogOpen] =
     useState(false);
 
+  const [isDrawDialogOpen, setIsDrawDialogOpen] =
+    useState(false);
+
+  const [dismissedDrawOfferAt, setDismissedDrawOfferAt] =
+    useState<string | null>(null);
+
+  const playerDrawColor =
+    playerColor === "w" ? "WHITE" : "BLACK";
+
+  const hasOutgoingDrawOffer =
+    drawOfferBy === playerDrawColor;
+
+  const hasIncomingDrawOffer =
+    drawOfferBy !== null &&
+    drawOfferBy !== playerDrawColor;
+
+  const isIncomingDrawOfferDismissed =
+    hasIncomingDrawOffer &&
+    drawOfferedAt !== null &&
+    dismissedDrawOfferAt === drawOfferedAt;
+
+  const shouldShowIncomingDrawDialog =
+    hasIncomingDrawOffer &&
+    !isIncomingDrawOfferDismissed;
+
   const authoritativeResult =
     result === "WHITE_WIN" ||
     result === "BLACK_WIN" ||
@@ -237,6 +269,22 @@ export default function OnlineGameClient({
     if (resigned) {
       setIsResignDialogOpen(false);
     }
+  }
+
+  async function handleDrawOfferConfirm() {
+    const offered = await offerDraw();
+
+    if (offered) {
+      setIsDrawDialogOpen(false);
+    }
+  }
+
+  async function handleDrawAccept() {
+    await acceptDraw();
+  }
+
+  async function handleDrawDecline() {
+    await declineDraw();
   }
 
   const finishedResultLabel =
@@ -279,6 +327,42 @@ export default function OnlineGameClient({
         onCancel={() => setIsResignDialogOpen(false)}
         onConfirm={() => {
           void handleResignConfirm();
+        }}
+      />
+
+      <OnlineDrawDialog
+        isOpen={
+          !isGameOver &&
+          (isDrawDialogOpen ||
+            shouldShowIncomingDrawDialog)
+        }
+        mode={
+          shouldShowIncomingDrawDialog
+            ? "RESPOND_TO_OFFER"
+            : "CONFIRM_OFFER"
+        }
+        opponentUsername={opponent.username}
+        isSubmitting={isProcessingDraw}
+        onCancel={() => {
+          if (hasIncomingDrawOffer) {
+            void handleDrawDecline();
+            return;
+          }
+
+          setIsDrawDialogOpen(false);
+        }}
+        onConfirm={() => {
+          if (shouldShowIncomingDrawDialog) {
+            void handleDrawAccept();
+            return;
+          }
+
+          void handleDrawOfferConfirm();
+        }}
+        onDismiss={() => {
+          if (drawOfferedAt) {
+            setDismissedDrawOfferAt(drawOfferedAt);
+          }
         }}
       />
 
@@ -412,24 +496,97 @@ export default function OnlineGameClient({
             </div>
           </div>
 
+          {!isGameOver && (
+            <div className="mt-4">
+              <p className="mb-2 text-center text-xs font-bold uppercase tracking-[0.25em] text-slate-500">
+                Game Actions
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsDrawDialogOpen(true)}
+                  title={
+                    !isPlayerTurn
+                      ? "You can offer a draw on your turn"
+                      : undefined
+                  }
+                  disabled={
+                    !isPlayerTurn ||
+                    hasOutgoingDrawOffer ||
+                    hasIncomingDrawOffer ||
+                    isProcessingDraw ||
+                    isResigning
+                  }
+                  className="rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 py-3 font-bold text-sky-200 transition hover:border-sky-400/70 hover:bg-sky-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {hasOutgoingDrawOffer
+                    ? "🤝 Offer Sent"
+                    : hasIncomingDrawOffer
+                      ? "🤝 Draw Offered"
+                    : "🤝 Offer Draw"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setIsResignDialogOpen(true)}
+                  disabled={
+                    isResigning ||
+                    isProcessingDraw
+                  }
+                  className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 font-bold text-red-300 transition hover:border-red-400/70 hover:bg-red-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  🏳️ Resign
+                </button>
+              </div>
+
+              {hasOutgoingDrawOffer && (
+                <div className="mt-3 rounded-xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-center text-sm font-semibold text-sky-200">
+                  Draw offer sent — waiting for your opponent.
+                </div>
+              )}
+
+              {isIncomingDrawOfferDismissed && (
+                <div className="mt-3 rounded-xl border border-sky-400/30 bg-sky-400/10 p-3">
+                  <p className="text-center text-sm font-semibold text-sky-100">
+                    {opponent.username} offered a draw.
+                  </p>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleDrawDecline();
+                      }}
+                      disabled={isProcessingDraw}
+                      className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      Decline
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleDrawAccept();
+                      }}
+                      disabled={isProcessingDraw}
+                      className="rounded-lg bg-sky-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Accept Draw
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           <button
             type="button"
             onClick={handleFlipBoard}
-            className="mt-4 w-full rounded-xl border border-slate-700 bg-slate-800 px-5 py-3 font-bold text-slate-200 transition hover:border-slate-600 hover:bg-slate-700"
+            className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-800 px-5 py-3 font-bold text-slate-200 transition hover:border-slate-600 hover:bg-slate-700"
           >
             🔄 Flip Board
           </button>
-
-          {!isGameOver && (
-            <button
-              type="button"
-              onClick={() => setIsResignDialogOpen(true)}
-              disabled={isResigning}
-              className="mt-3 w-full rounded-xl border border-red-400/40 bg-red-500/10 px-5 py-3 font-bold text-red-300 transition hover:border-red-400/70 hover:bg-red-500/20 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              🏳️ Resign
-            </button>
-          )}
 
           <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-center text-sm font-semibold text-emerald-200">
             ● Online game synchronized
