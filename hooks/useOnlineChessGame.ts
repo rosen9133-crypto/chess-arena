@@ -29,6 +29,23 @@ type OnlineDrawAction = "OFFER" | "ACCEPT" | "DECLINE";
 type OnlineRematchOfferBy = "WHITE" | "BLACK" | null;
 type OnlineRematchAction = "OFFER" | "ACCEPT" | "DECLINE";
 
+type OnlineRatingPlayerResult = {
+  id: string;
+  username: string;
+  oldRating: number | null;
+  newRating: number | null;
+  ratingChange: number | null;
+};
+
+type OnlineRatingResult = {
+  gameId: string;
+  timeControl: string;
+  result: string;
+  alreadyProcessed: boolean;
+  whitePlayer: OnlineRatingPlayerResult;
+  blackPlayer: OnlineRatingPlayerResult;
+};
+
 type UseOnlineChessGameOptions = {
   gameId: string;
   playerColor: ChessColor;
@@ -42,6 +59,7 @@ type OnlineGameResponse = {
     status: string;
     result: string | null;
     endReason: string | null;
+    rated: boolean;
     fen: string;
     pgn: string;
     whiteTimeMs: number;
@@ -53,6 +71,17 @@ type OnlineGameResponse = {
     rematchOfferedAt?: string | null;
     rematchGameId?: string | null;
   };
+};
+
+type OnlineRatingResponse = {
+  success?: boolean;
+  error?: string;
+  alreadyProcessed?: boolean;
+  gameId?: string;
+  timeControl?: string;
+  result?: string;
+  whitePlayer?: OnlineRatingPlayerResult;
+  blackPlayer?: OnlineRatingPlayerResult;
 };
 
 type OnlineRematchResponse = {
@@ -118,6 +147,18 @@ export function useOnlineChessGame({
   const [isProcessingRematch, setIsProcessingRematch] =
     useState(false);
 
+  const [isProcessingRating, setIsProcessingRating] =
+    useState(false);
+
+  const [isRatedGame, setIsRatedGame] =
+    useState(false);
+
+  const [ratingResult, setRatingResult] =
+    useState<OnlineRatingResult | null>(null);
+
+  const [ratingError, setRatingError] =
+    useState<string | null>(null);
+
   const [syncError, setSyncError] =
     useState<string | null>(null);
 
@@ -170,6 +211,8 @@ export function useOnlineChessGame({
   const isProcessingDrawRef =
     useRef(false);
   const isProcessingRematchRef =
+    useRef(false);
+  const isProcessingRatingRef =
     useRef(false);
   const timeoutRefreshRequestedRef =
     useRef(false);
@@ -358,6 +401,70 @@ export function useOnlineChessGame({
     [],
   );
 
+  const processRatedResult = useCallback(async () => {
+    if (isProcessingRatingRef.current) {
+      return;
+    }
+
+    isProcessingRatingRef.current = true;
+    setIsProcessingRating(true);
+    setRatingError(null);
+
+    try {
+      const response = await fetch(
+        "/api/rated-game-result",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ gameId }),
+        },
+      );
+
+      const data =
+        (await response.json()) as OnlineRatingResponse;
+
+      if (
+        !response.ok ||
+        !data.success ||
+        !data.gameId ||
+        !data.timeControl ||
+        !data.result ||
+        !data.whitePlayer ||
+        !data.blackPlayer
+      ) {
+        throw new Error(
+          data.error ??
+            "Could not process the rating result.",
+        );
+      }
+
+      setRatingResult({
+        gameId: data.gameId,
+        timeControl: data.timeControl,
+        result: data.result,
+        alreadyProcessed:
+          data.alreadyProcessed ?? false,
+        whitePlayer: data.whitePlayer,
+        blackPlayer: data.blackPlayer,
+      });
+    } catch (error) {
+      console.error(
+        "ONLINE RATING RESULT ERROR:",
+        error,
+      );
+
+      setRatingError(
+        "Could not update the player ratings.",
+      );
+
+      isProcessingRatingRef.current = false;
+    } finally {
+      setIsProcessingRating(false);
+    }
+  }, [gameId]);
+
   const fetchGameState =
     useCallback(async () => {
       if (!gameId) {
@@ -397,11 +504,20 @@ export function useOnlineChessGame({
         setStatus(data.game.status);
         setResult(data.game.result);
         setEndReason(data.game.endReason);
+        setIsRatedGame(data.game.rated);
         setDrawOfferBy(data.game.drawOfferBy ?? null);
         setDrawOfferedAt(data.game.drawOfferedAt ?? null);
         setRematchOfferBy(data.game.rematchOfferBy ?? null);
         setRematchOfferedAt(data.game.rematchOfferedAt ?? null);
         setRematchGameId(data.game.rematchGameId ?? null);
+
+        if (
+          data.game.status === "FINISHED" &&
+          data.game.rated &&
+          !ratingResult
+        ) {
+          void processRatedResult();
+        }
 
         if (
           data.game.status === "IN_PROGRESS" &&
@@ -438,7 +554,13 @@ export function useOnlineChessGame({
       } finally {
         setIsSyncing(false);
       }
-    }, [applyServerClock, applyServerGame, gameId]);
+    }, [
+      applyServerClock,
+      applyServerGame,
+      gameId,
+      processRatedResult,
+      ratingResult,
+    ]);
 
   useEffect(() => {
     if (
@@ -555,11 +677,10 @@ export function useOnlineChessGame({
         to,
         ...(promotion ? { promotion } : {}),
       });
-    } catch (error) {
-      console.error("ONLINE OPTIMISTIC MOVE ERROR:", error);
-      isSendingMoveRef.current = false;
-      setIsSendingMove(false);
-      return false;
+  } catch {
+    isSendingMoveRef.current = false;
+    setIsSendingMove(false);
+    return false;
     }
 
     gameRef.current = optimisticGame;
@@ -1243,6 +1364,10 @@ export function useOnlineChessGame({
     isResigning,
     isProcessingDraw,
     isProcessingRematch,
+    isProcessingRating,
+    isRatedGame,
+    ratingResult,
+    ratingError,
     syncError,
     whiteTime,
     blackTime,

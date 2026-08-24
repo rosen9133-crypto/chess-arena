@@ -159,6 +159,10 @@ export default function OnlineGameClient({
     isResigning,
     isProcessingDraw,
     isProcessingRematch,
+    isProcessingRating,
+    isRatedGame,
+    ratingResult,
+    ratingError,
     boardOrientation,
     squareStyles,
     shouldShowPromotionDialog,
@@ -195,6 +199,12 @@ export default function OnlineGameClient({
     playerColor === "w"
       ? blackPlayer
       : whitePlayer;
+
+  const currentPlayerRating = ratingResult
+    ? playerColor === "w"
+      ? ratingResult.whitePlayer
+      : ratingResult.blackPlayer
+    : null;
 
   const currentPlayerTime =
     playerColor === "w"
@@ -370,6 +380,18 @@ export default function OnlineGameClient({
         }
         result={authoritativeResult}
         reason={gameOverReason}
+        isRated={isRatedGame || rated}
+        isRatingLoading={isProcessingRating}
+        rating={
+          currentPlayerRating
+            ? {
+                oldRating: currentPlayerRating.oldRating,
+                newRating: currentPlayerRating.newRating,
+                ratingChange: currentPlayerRating.ratingChange,
+              }
+            : null
+        }
+        ratingError={ratingError}
         onClose={() => setIsGameOverDialogClosed(true)}
       />
 

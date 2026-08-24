@@ -102,6 +102,12 @@ model Game {
   timeControl GameTimeControl
   rated       Boolean @default(true)
 
+  ratingProcessedAt DateTime?
+  whiteRatingBefore Float?
+  whiteRatingAfter  Float?
+  blackRatingBefore Float?
+  blackRatingAfter  Float?
+
   initialTimeSeconds Int
   incrementSeconds   Int @default(0)
 

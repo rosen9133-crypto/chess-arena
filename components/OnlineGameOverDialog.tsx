@@ -7,6 +7,14 @@ type OnlineGameOverDialogProps = {
   isOpen: boolean;
   result: OnlineGameResult | null;
   reason: string;
+  isRated?: boolean;
+  isRatingLoading?: boolean;
+  rating?: {
+    oldRating: number | null;
+    newRating: number | null;
+    ratingChange: number | null;
+  } | null;
+  ratingError?: string | null;
   onClose: () => void;
 };
 
@@ -14,6 +22,10 @@ export default function OnlineGameOverDialog({
   isOpen,
   result,
   reason,
+  isRated = false,
+  isRatingLoading = false,
+  rating = null,
+  ratingError = null,
   onClose,
 }: OnlineGameOverDialogProps) {
   if (!isOpen || !result) {
@@ -35,6 +47,31 @@ export default function OnlineGameOverDialog({
       : result === "BLACK_WIN"
         ? "0 – 1"
         : "½ – ½";
+
+  const oldRating =
+    rating?.oldRating !== null &&
+    rating?.oldRating !== undefined
+      ? Math.round(rating.oldRating)
+      : null;
+
+  const newRating =
+    rating?.newRating !== null &&
+    rating?.newRating !== undefined
+      ? Math.round(rating.newRating)
+      : null;
+
+  const ratingChange =
+    rating?.ratingChange !== null &&
+    rating?.ratingChange !== undefined
+      ? Math.round(rating.ratingChange)
+      : null;
+
+  const formattedRatingChange =
+    ratingChange !== null
+      ? ratingChange > 0
+        ? `+${ratingChange}`
+        : `${ratingChange}`
+      : null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm">
@@ -79,6 +116,56 @@ export default function OnlineGameOverDialog({
                 {score}
               </span>
             </div>
+
+            {isRated && (
+              <div className="mt-5 rounded-2xl border border-slate-700 bg-slate-950/60 px-5 py-4">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-slate-500">
+                  Rating
+                </p>
+
+                {isRatingLoading && !rating && (
+                  <p className="mt-3 font-semibold text-slate-300">
+                    Updating rating…
+                  </p>
+                )}
+
+                {rating &&
+                  oldRating !== null &&
+                  newRating !== null && (
+                    <div className="mt-3 flex items-center justify-center gap-3">
+                      <span className="text-xl font-bold text-slate-400">
+                        {oldRating}
+                      </span>
+
+                      <span className="text-slate-600">→</span>
+
+                      <span className="text-2xl font-black text-white">
+                        {newRating}
+                      </span>
+
+                      {formattedRatingChange && (
+                        <span
+                          className={`rounded-lg px-2.5 py-1 text-sm font-black ${
+                            ratingChange !== null && ratingChange > 0
+                              ? "bg-emerald-400/15 text-emerald-400"
+                              : ratingChange !== null && ratingChange < 0
+                                ? "bg-rose-400/15 text-rose-400"
+                                : "bg-slate-700 text-slate-300"
+                          }`}
+                        >
+                          {formattedRatingChange}
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                {ratingError && !rating && (
+                  <p className="mt-3 text-sm font-semibold text-rose-400">
+                    Rating update is temporarily unavailable.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <button

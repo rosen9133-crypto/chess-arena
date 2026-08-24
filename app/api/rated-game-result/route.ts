@@ -4,37 +4,35 @@ import { auth } from "@/auth";
 import { calculateGlicko2Rating, type MatchResult } from "@/lib/glicko2";
 import { prisma } from "@/lib/prisma";
 
-type TimeControl = "bullet" | "blitz" | "rapid";
-type GameResult = "win" | "loss" | "draw";
-
 type RequestBody = {
-  opponentId?: string;
-  result?: GameResult;
-  timeControl?: TimeControl;
+  gameId?: string;
 };
 
-function getScore(result: GameResult): MatchResult {
-  if (result === "win") {
-    return 1;
+type RatingState = {
+  rating: number;
+  ratingDeviation: number;
+  volatility: number;
+};
+
+function getScores(result: "WHITE_WIN" | "BLACK_WIN" | "DRAW") {
+  if (result === "WHITE_WIN") {
+    return {
+      whiteScore: 1 as MatchResult,
+      blackScore: 0 as MatchResult,
+    };
   }
 
-  if (result === "draw") {
-    return 0.5;
+  if (result === "BLACK_WIN") {
+    return {
+      whiteScore: 0 as MatchResult,
+      blackScore: 1 as MatchResult,
+    };
   }
 
-  return 0;
-}
-
-function getOpponentScore(result: GameResult): MatchResult {
-  if (result === "win") {
-    return 0;
-  }
-
-  if (result === "draw") {
-    return 0.5;
-  }
-
-  return 1;
+  return {
+    whiteScore: 0.5 as MatchResult,
+    blackScore: 0.5 as MatchResult,
+  };
 }
 
 export async function POST(request: Request) {
@@ -47,6 +45,8 @@ export async function POST(request: Request) {
     );
   }
 
+  const userEmail = session.user.email;
+
   let body: RequestBody;
 
   try {
@@ -58,270 +58,377 @@ export async function POST(request: Request) {
     );
   }
 
-  const { opponentId, result, timeControl } = body;
+  const gameId = body.gameId?.trim();
 
-  if (!opponentId) {
+  if (!gameId) {
     return NextResponse.json(
-      { error: "Opponent ID is required" },
+      { error: "Game ID is required" },
       { status: 400 },
     );
   }
 
-  if (
-    result !== "win" &&
-    result !== "loss" &&
-    result !== "draw"
-  ) {
-    return NextResponse.json(
-      { error: "Invalid game result" },
-      { status: 400 },
-    );
-  }
+  try {
+    const response = await prisma.$transaction(async (tx) => {
+      const currentUser = await tx.user.findUnique({
+        where: { email: userEmail },
+        select: { id: true },
+      });
 
-  if (
-    timeControl !== "bullet" &&
-    timeControl !== "blitz" &&
-    timeControl !== "rapid"
-  ) {
-    return NextResponse.json(
-      { error: "Invalid time control" },
-      { status: 400 },
-    );
-  }
+      if (!currentUser) {
+        return {
+          error: "Current user not found",
+          status: 404,
+        } as const;
+      }
 
-  const player = await prisma.user.findUnique({
-    where: {
-      email: session.user.email,
-    },
-  });
-
-  if (!player) {
-    return NextResponse.json(
-      { error: "Player not found" },
-      { status: 404 },
-    );
-  }
-
-  if (player.id === opponentId) {
-    return NextResponse.json(
-      { error: "You cannot play a rated game against yourself" },
-      { status: 400 },
-    );
-  }
-
-  const opponent = await prisma.user.findUnique({
-    where: {
-      id: opponentId,
-    },
-  });
-
-  if (!opponent) {
-    return NextResponse.json(
-      { error: "Opponent not found" },
-      { status: 404 },
-    );
-  }
-
-  const playerScore = getScore(result);
-  const opponentScore = getOpponentScore(result);
-
-  let playerRating: number;
-  let playerRatingDeviation: number;
-  let playerVolatility: number;
-
-  let opponentRating: number;
-  let opponentRatingDeviation: number;
-  let opponentVolatility: number;
-
-  if (timeControl === "bullet") {
-    playerRating = player.bulletRating;
-    playerRatingDeviation = player.bulletRatingDeviation;
-    playerVolatility = player.bulletVolatility;
-
-    opponentRating = opponent.bulletRating;
-    opponentRatingDeviation = opponent.bulletRatingDeviation;
-    opponentVolatility = opponent.bulletVolatility;
-  } else if (timeControl === "blitz") {
-    playerRating = player.blitzRating;
-    playerRatingDeviation = player.blitzRatingDeviation;
-    playerVolatility = player.blitzVolatility;
-
-    opponentRating = opponent.blitzRating;
-    opponentRatingDeviation = opponent.blitzRatingDeviation;
-    opponentVolatility = opponent.blitzVolatility;
-  } else {
-    playerRating = player.rapidRating;
-    playerRatingDeviation = player.rapidRatingDeviation;
-    playerVolatility = player.rapidVolatility;
-
-    opponentRating = opponent.rapidRating;
-    opponentRatingDeviation = opponent.rapidRatingDeviation;
-    opponentVolatility = opponent.rapidVolatility;
-  }
-
-  const newPlayerRating = calculateGlicko2Rating(
-    {
-      rating: playerRating,
-      ratingDeviation: playerRatingDeviation,
-      volatility: playerVolatility,
-    },
-    [
-      {
-        opponent: {
-          rating: opponentRating,
-          ratingDeviation: opponentRatingDeviation,
-          volatility: opponentVolatility,
-        },
-        score: playerScore,
-      },
-    ],
-  );
-
-  const newOpponentRating = calculateGlicko2Rating(
-    {
-      rating: opponentRating,
-      ratingDeviation: opponentRatingDeviation,
-      volatility: opponentVolatility,
-    },
-    [
-      {
-        opponent: {
-          rating: playerRating,
-          ratingDeviation: playerRatingDeviation,
-          volatility: playerVolatility,
-        },
-        score: opponentScore,
-      },
-    ],
-  );
-
-  const playerStats =
-    result === "win"
-      ? {
-          wins: {
-            increment: 1,
+      const game = await tx.game.findUnique({
+        where: { id: gameId },
+        select: {
+          id: true,
+          status: true,
+          result: true,
+          rated: true,
+          timeControl: true,
+          whitePlayerId: true,
+          blackPlayerId: true,
+          ratingProcessedAt: true,
+          whiteRatingBefore: true,
+          whiteRatingAfter: true,
+          blackRatingBefore: true,
+          blackRatingAfter: true,
+          whitePlayer: {
+            select: {
+              id: true,
+              username: true,
+              bulletRating: true,
+              bulletRatingDeviation: true,
+              bulletVolatility: true,
+              blitzRating: true,
+              blitzRatingDeviation: true,
+              blitzVolatility: true,
+              rapidRating: true,
+              rapidRatingDeviation: true,
+              rapidVolatility: true,
+            },
           },
-        }
-      : result === "loss"
-        ? {
-            losses: {
-              increment: 1,
+          blackPlayer: {
+            select: {
+              id: true,
+              username: true,
+              bulletRating: true,
+              bulletRatingDeviation: true,
+              bulletVolatility: true,
+              blitzRating: true,
+              blitzRatingDeviation: true,
+              blitzVolatility: true,
+              rapidRating: true,
+              rapidRatingDeviation: true,
+              rapidVolatility: true,
             },
-          }
-        : {
-            draws: {
-              increment: 1,
-            },
-          };
-
-  const opponentStats =
-    result === "win"
-      ? {
-          losses: {
-            increment: 1,
           },
-        }
-      : result === "loss"
-        ? {
-            wins: {
-              increment: 1,
-            },
-          }
-        : {
-            draws: {
-              increment: 1,
-            },
-          };
+        },
+      });
 
-  let playerRatingData;
-  let opponentRatingData;
+      if (!game) {
+        return { error: "Game not found", status: 404 } as const;
+      }
 
-  if (timeControl === "bullet") {
-    playerRatingData = {
-      bulletRating: newPlayerRating.rating,
-      bulletRatingDeviation: newPlayerRating.ratingDeviation,
-      bulletVolatility: newPlayerRating.volatility,
-    };
+      const isPlayer =
+        game.whitePlayerId === currentUser.id ||
+        game.blackPlayerId === currentUser.id;
 
-    opponentRatingData = {
-      bulletRating: newOpponentRating.rating,
-      bulletRatingDeviation: newOpponentRating.ratingDeviation,
-      bulletVolatility: newOpponentRating.volatility,
-    };
-  } else if (timeControl === "blitz") {
-    playerRatingData = {
-      blitzRating: newPlayerRating.rating,
-      blitzRatingDeviation: newPlayerRating.ratingDeviation,
-      blitzVolatility: newPlayerRating.volatility,
-    };
+      if (!isPlayer) {
+        return { error: "Forbidden", status: 403 } as const;
+      }
 
-    opponentRatingData = {
-      blitzRating: newOpponentRating.rating,
-      blitzRatingDeviation: newOpponentRating.ratingDeviation,
-      blitzVolatility: newOpponentRating.volatility,
-    };
-  } else {
-    playerRatingData = {
-      rapidRating: newPlayerRating.rating,
-      rapidRatingDeviation: newPlayerRating.ratingDeviation,
-      rapidVolatility: newPlayerRating.volatility,
-    };
+      if (game.status !== "FINISHED" || !game.result) {
+        return {
+          error: "Game is not finished",
+          status: 409,
+        } as const;
+      }
 
-    opponentRatingData = {
-      rapidRating: newOpponentRating.rating,
-      rapidRatingDeviation: newOpponentRating.ratingDeviation,
-      rapidVolatility: newOpponentRating.volatility,
-    };
+      if (!game.rated) {
+        return {
+          error: "This game is not rated",
+          status: 409,
+        } as const;
+      }
+
+      if (game.ratingProcessedAt) {
+        return {
+          success: true,
+          alreadyProcessed: true,
+          gameId: game.id,
+          timeControl: game.timeControl,
+          result: game.result,
+          whitePlayer: {
+            id: game.whitePlayer.id,
+            username: game.whitePlayer.username,
+            oldRating: game.whiteRatingBefore,
+            newRating: game.whiteRatingAfter,
+            ratingChange:
+              game.whiteRatingBefore !== null &&
+              game.whiteRatingAfter !== null
+                ? game.whiteRatingAfter - game.whiteRatingBefore
+                : null,
+          },
+          blackPlayer: {
+            id: game.blackPlayer.id,
+            username: game.blackPlayer.username,
+            oldRating: game.blackRatingBefore,
+            newRating: game.blackRatingAfter,
+            ratingChange:
+              game.blackRatingBefore !== null &&
+              game.blackRatingAfter !== null
+                ? game.blackRatingAfter - game.blackRatingBefore
+                : null,
+          },
+        } as const;
+      }
+
+      const processedAt = new Date();
+
+      const claimedGame = await tx.game.updateMany({
+        where: {
+          id: game.id,
+          status: "FINISHED",
+          rated: true,
+          ratingProcessedAt: null,
+        },
+        data: { ratingProcessedAt: processedAt },
+      });
+
+      if (claimedGame.count === 0) {
+        const processedGame = await tx.game.findUnique({
+          where: { id: game.id },
+          select: {
+            whiteRatingBefore: true,
+            whiteRatingAfter: true,
+            blackRatingBefore: true,
+            blackRatingAfter: true,
+          },
+        });
+
+        const whiteBefore =
+          processedGame?.whiteRatingBefore ?? null;
+        const whiteAfter =
+          processedGame?.whiteRatingAfter ?? null;
+        const blackBefore =
+          processedGame?.blackRatingBefore ?? null;
+        const blackAfter =
+          processedGame?.blackRatingAfter ?? null;
+
+        return {
+          success: true,
+          alreadyProcessed: true,
+          gameId: game.id,
+          timeControl: game.timeControl,
+          result: game.result,
+          whitePlayer: {
+            id: game.whitePlayer.id,
+            username: game.whitePlayer.username,
+            oldRating: whiteBefore,
+            newRating: whiteAfter,
+            ratingChange:
+              whiteBefore !== null && whiteAfter !== null
+                ? whiteAfter - whiteBefore
+                : null,
+          },
+          blackPlayer: {
+            id: game.blackPlayer.id,
+            username: game.blackPlayer.username,
+            oldRating: blackBefore,
+            newRating: blackAfter,
+            ratingChange:
+              blackBefore !== null && blackAfter !== null
+                ? blackAfter - blackBefore
+                : null,
+          },
+        } as const;
+      }
+
+      let whiteRatingState: RatingState;
+      let blackRatingState: RatingState;
+
+      if (game.timeControl === "BULLET") {
+        whiteRatingState = {
+          rating: game.whitePlayer.bulletRating,
+          ratingDeviation: game.whitePlayer.bulletRatingDeviation,
+          volatility: game.whitePlayer.bulletVolatility,
+        };
+        blackRatingState = {
+          rating: game.blackPlayer.bulletRating,
+          ratingDeviation: game.blackPlayer.bulletRatingDeviation,
+          volatility: game.blackPlayer.bulletVolatility,
+        };
+      } else if (game.timeControl === "BLITZ") {
+        whiteRatingState = {
+          rating: game.whitePlayer.blitzRating,
+          ratingDeviation: game.whitePlayer.blitzRatingDeviation,
+          volatility: game.whitePlayer.blitzVolatility,
+        };
+        blackRatingState = {
+          rating: game.blackPlayer.blitzRating,
+          ratingDeviation: game.blackPlayer.blitzRatingDeviation,
+          volatility: game.blackPlayer.blitzVolatility,
+        };
+      } else {
+        whiteRatingState = {
+          rating: game.whitePlayer.rapidRating,
+          ratingDeviation: game.whitePlayer.rapidRatingDeviation,
+          volatility: game.whitePlayer.rapidVolatility,
+        };
+        blackRatingState = {
+          rating: game.blackPlayer.rapidRating,
+          ratingDeviation: game.blackPlayer.rapidRatingDeviation,
+          volatility: game.blackPlayer.rapidVolatility,
+        };
+      }
+
+      const { whiteScore, blackScore } = getScores(game.result);
+
+      const newWhiteRating = calculateGlicko2Rating(
+        whiteRatingState,
+        [
+          {
+            opponent: blackRatingState,
+            score: whiteScore,
+          },
+        ],
+      );
+
+      const newBlackRating = calculateGlicko2Rating(
+        blackRatingState,
+        [
+          {
+            opponent: whiteRatingState,
+            score: blackScore,
+          },
+        ],
+      );
+
+      const whiteStats =
+        game.result === "WHITE_WIN"
+          ? { wins: { increment: 1 } }
+          : game.result === "BLACK_WIN"
+            ? { losses: { increment: 1 } }
+            : { draws: { increment: 1 } };
+
+      const blackStats =
+        game.result === "BLACK_WIN"
+          ? { wins: { increment: 1 } }
+          : game.result === "WHITE_WIN"
+            ? { losses: { increment: 1 } }
+            : { draws: { increment: 1 } };
+
+      if (game.timeControl === "BULLET") {
+        await tx.user.update({
+          where: { id: game.whitePlayerId },
+          data: {
+            ...whiteStats,
+            bulletRating: newWhiteRating.rating,
+            bulletRatingDeviation: newWhiteRating.ratingDeviation,
+            bulletVolatility: newWhiteRating.volatility,
+          },
+        });
+        await tx.user.update({
+          where: { id: game.blackPlayerId },
+          data: {
+            ...blackStats,
+            bulletRating: newBlackRating.rating,
+            bulletRatingDeviation: newBlackRating.ratingDeviation,
+            bulletVolatility: newBlackRating.volatility,
+          },
+        });
+      } else if (game.timeControl === "BLITZ") {
+        await tx.user.update({
+          where: { id: game.whitePlayerId },
+          data: {
+            ...whiteStats,
+            blitzRating: newWhiteRating.rating,
+            blitzRatingDeviation: newWhiteRating.ratingDeviation,
+            blitzVolatility: newWhiteRating.volatility,
+          },
+        });
+        await tx.user.update({
+          where: { id: game.blackPlayerId },
+          data: {
+            ...blackStats,
+            blitzRating: newBlackRating.rating,
+            blitzRatingDeviation: newBlackRating.ratingDeviation,
+            blitzVolatility: newBlackRating.volatility,
+          },
+        });
+      } else {
+        await tx.user.update({
+          where: { id: game.whitePlayerId },
+          data: {
+            ...whiteStats,
+            rapidRating: newWhiteRating.rating,
+            rapidRatingDeviation: newWhiteRating.ratingDeviation,
+            rapidVolatility: newWhiteRating.volatility,
+          },
+        });
+        await tx.user.update({
+          where: { id: game.blackPlayerId },
+          data: {
+            ...blackStats,
+            rapidRating: newBlackRating.rating,
+            rapidRatingDeviation: newBlackRating.ratingDeviation,
+            rapidVolatility: newBlackRating.volatility,
+          },
+        });
+      }
+
+      await tx.game.update({
+        where: { id: game.id },
+        data: {
+          ratingProcessedAt: processedAt,
+          whiteRatingBefore: whiteRatingState.rating,
+          whiteRatingAfter: newWhiteRating.rating,
+          blackRatingBefore: blackRatingState.rating,
+          blackRatingAfter: newBlackRating.rating,
+        },
+      });
+
+      return {
+        success: true,
+        alreadyProcessed: false,
+        gameId: game.id,
+        timeControl: game.timeControl,
+        result: game.result,
+        whitePlayer: {
+          id: game.whitePlayer.id,
+          username: game.whitePlayer.username,
+          oldRating: whiteRatingState.rating,
+          newRating: newWhiteRating.rating,
+          ratingChange: newWhiteRating.rating - whiteRatingState.rating,
+        },
+        blackPlayer: {
+          id: game.blackPlayer.id,
+          username: game.blackPlayer.username,
+          oldRating: blackRatingState.rating,
+          newRating: newBlackRating.rating,
+          ratingChange: newBlackRating.rating - blackRatingState.rating,
+        },
+      } as const;
+    });
+
+    if ("error" in response) {
+      return NextResponse.json(
+        { error: response.error },
+        { status: response.status },
+      );
+    }
+
+    return NextResponse.json(response, { status: 200 });
+  } catch (error) {
+    console.error("RATED GAME RESULT ERROR:", error);
+
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
   }
-
-  const [updatedPlayer, updatedOpponent] = await prisma.$transaction([
-    prisma.user.update({
-      where: {
-        id: player.id,
-      },
-      data: {
-        ...playerRatingData,
-        ...playerStats,
-      },
-    }),
-
-    prisma.user.update({
-      where: {
-        id: opponent.id,
-      },
-      data: {
-        ...opponentRatingData,
-        ...opponentStats,
-      },
-    }),
-  ]);
-
-  const ratingChange =
-    newPlayerRating.rating - playerRating;
-
-  return NextResponse.json({
-    success: true,
-    timeControl,
-    result,
-    player: {
-      id: updatedPlayer.id,
-      username: updatedPlayer.username,
-      oldRating: playerRating,
-      newRating: newPlayerRating.rating,
-      ratingChange,
-      ratingDeviation: newPlayerRating.ratingDeviation,
-      volatility: newPlayerRating.volatility,
-    },
-    opponent: {
-      id: updatedOpponent.id,
-      username: updatedOpponent.username,
-      oldRating: opponentRating,
-      newRating: newOpponentRating.rating,
-      ratingChange:
-        newOpponentRating.rating - opponentRating,
-      ratingDeviation:
-        newOpponentRating.ratingDeviation,
-      volatility: newOpponentRating.volatility,
-    },
-  });
 }
