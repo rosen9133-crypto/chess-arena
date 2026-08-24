@@ -36,6 +36,11 @@ enum GameDrawOfferBy {
   BLACK
 }
 
+enum GameRematchOfferBy {
+  WHITE
+  BLACK
+}
+
 enum GameTimeControl {
   BULLET
   BLITZ
@@ -87,8 +92,12 @@ model Game {
   result    GameResult?
   endReason GameEndReason?
 
-  drawOfferBy  GameDrawOfferBy?
+  drawOfferBy   GameDrawOfferBy?
   drawOfferedAt DateTime?
+
+  rematchOfferBy   GameRematchOfferBy?
+  rematchOfferedAt DateTime?
+  rematchGameId    String?
 
   timeControl GameTimeControl
   rated       Boolean @default(true)

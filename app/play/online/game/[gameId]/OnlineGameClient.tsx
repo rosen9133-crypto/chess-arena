@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Chessboard } from "react-chessboard";
 
 import OnlineDrawDialog from "@/components/OnlineDrawDialog";
@@ -152,9 +153,12 @@ export default function OnlineGameClient({
     endReason,
     drawOfferBy,
     drawOfferedAt,
+    rematchOfferBy,
+    rematchGameId,
     isPlayerTurn,
     isResigning,
     isProcessingDraw,
+    isProcessingRematch,
     boardOrientation,
     squareStyles,
     shouldShowPromotionDialog,
@@ -170,12 +174,17 @@ export default function OnlineGameClient({
     offerDraw,
     acceptDraw,
     declineDraw,
+    offerRematch,
+    acceptRematch,
+    declineRematch,
     handlePromotionSelect,
     handleFlipBoard,
   } = useOnlineChessGame({
     gameId,
     playerColor,
   });
+
+  const router = useRouter();
 
   const currentPlayer =
     playerColor === "w"
@@ -223,6 +232,9 @@ export default function OnlineGameClient({
   const [isDrawDialogOpen, setIsDrawDialogOpen] =
     useState(false);
 
+  const [isRematchDialogOpen, setIsRematchDialogOpen] =
+    useState(false);
+
   const [dismissedDrawOfferAt, setDismissedDrawOfferAt] =
     useState<string | null>(null);
 
@@ -244,6 +256,26 @@ export default function OnlineGameClient({
   const shouldShowIncomingDrawDialog =
     hasIncomingDrawOffer &&
     !isIncomingDrawOfferDismissed;
+
+  const playerRematchColor =
+    playerColor === "w" ? "WHITE" : "BLACK";
+
+  const hasOutgoingRematchOffer =
+    rematchOfferBy === playerRematchColor;
+
+  const hasIncomingRematchOffer =
+    rematchOfferBy !== null &&
+    rematchOfferBy !== playerRematchColor;
+
+  const shouldShowRematchDialog =
+    isGameOverDialogClosed &&
+    (isRematchDialogOpen || hasIncomingRematchOffer);
+
+  useEffect(() => {
+    if (rematchGameId) {
+      router.push(`/play/online/game/${rematchGameId}`);
+    }
+  }, [rematchGameId, router]);
 
   const authoritativeResult =
     result === "WHITE_WIN" ||
@@ -285,6 +317,26 @@ export default function OnlineGameClient({
 
   async function handleDrawDecline() {
     await declineDraw();
+  }
+
+  async function handleRematchOffer() {
+    const offered = await offerRematch();
+
+    if (offered) {
+      setIsRematchDialogOpen(false);
+    }
+  }
+
+  async function handleRematchAccept() {
+    await acceptRematch();
+  }
+
+  async function handleRematchDecline() {
+    const declined = await declineRematch();
+
+    if (declined) {
+      setIsRematchDialogOpen(false);
+    }
   }
 
   const finishedResultLabel =
@@ -365,6 +417,70 @@ export default function OnlineGameClient({
           }
         }}
       />
+
+      {shouldShowRematchDialog && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-3xl border border-yellow-400/30 bg-gradient-to-b from-slate-900 to-slate-950 p-6 text-center shadow-2xl shadow-black/60">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl border border-yellow-400/30 bg-yellow-400/10 text-3xl">
+              ♟️
+            </div>
+
+            <p className="mt-5 text-xs font-bold uppercase tracking-[0.3em] text-yellow-400">
+              Online Game
+            </p>
+
+            <h2 className="mt-2 text-3xl font-black text-white">
+              {hasIncomingRematchOffer
+                ? "Rematch Offered"
+                : "Play Again?"}
+            </h2>
+
+            <p className="mt-3 text-slate-300">
+              {hasIncomingRematchOffer
+                ? `${opponent.username} wants a rematch. Colors will be switched.`
+                : "Send a rematch offer. You will switch colors for the next game."}
+            </p>
+
+            <div className="mt-6 grid grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  if (hasIncomingRematchOffer) {
+                    void handleRematchDecline();
+                    return;
+                  }
+
+                  setIsRematchDialogOpen(false);
+                }}
+                disabled={isProcessingRematch}
+                className="rounded-xl border border-slate-600 bg-slate-800 px-4 py-3 font-bold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {hasIncomingRematchOffer ? "Decline" : "Cancel"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (hasIncomingRematchOffer) {
+                    void handleRematchAccept();
+                    return;
+                  }
+
+                  void handleRematchOffer();
+                }}
+                disabled={isProcessingRematch}
+                className="rounded-xl bg-yellow-400 px-4 py-3 font-black text-slate-950 transition hover:bg-yellow-300 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isProcessingRematch
+                  ? "Please wait..."
+                  : hasIncomingRematchOffer
+                    ? "Accept Rematch"
+                    : "Offer Rematch"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="mt-5 rounded-2xl border border-slate-700/70 bg-slate-950/60 p-5">
         <GameInfoRow
@@ -575,6 +691,39 @@ export default function OnlineGameClient({
                       Accept Draw
                     </button>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {isGameOver && (
+            <div className="mt-4">
+              <p className="mb-2 text-center text-xs font-bold uppercase tracking-[0.25em] text-slate-500">
+                Post-Game Actions
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setIsRematchDialogOpen(true)}
+                disabled={
+                  hasOutgoingRematchOffer ||
+                  isProcessingRematch ||
+                  rematchGameId !== null
+                }
+                className="w-full rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-5 py-3 font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {rematchGameId
+                  ? "♟️ Opening Rematch..."
+                  : hasOutgoingRematchOffer
+                    ? "♟️ Rematch Offer Sent"
+                    : hasIncomingRematchOffer
+                      ? "♟️ Rematch Offered"
+                      : "♟️ Rematch"}
+              </button>
+
+              {hasOutgoingRematchOffer && (
+                <div className="mt-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-center text-sm font-semibold text-yellow-200">
+                  Rematch offer sent — waiting for your opponent.
                 </div>
               )}
             </div>

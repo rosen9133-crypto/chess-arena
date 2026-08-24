@@ -26,6 +26,8 @@ type OnlineGameStatus = string;
 type OnlineGameResult = string | null;
 type OnlineDrawOfferBy = "WHITE" | "BLACK" | null;
 type OnlineDrawAction = "OFFER" | "ACCEPT" | "DECLINE";
+type OnlineRematchOfferBy = "WHITE" | "BLACK" | null;
+type OnlineRematchAction = "OFFER" | "ACCEPT" | "DECLINE";
 
 type UseOnlineChessGameOptions = {
   gameId: string;
@@ -47,7 +49,24 @@ type OnlineGameResponse = {
     clockStartedAt: string | null;
     drawOfferBy?: OnlineDrawOfferBy;
     drawOfferedAt?: string | null;
+    rematchOfferBy?: OnlineRematchOfferBy;
+    rematchOfferedAt?: string | null;
+    rematchGameId?: string | null;
   };
+};
+
+type OnlineRematchResponse = {
+  success?: boolean;
+  error?: string;
+  game?: {
+    id: string;
+    rematchOfferBy: OnlineRematchOfferBy;
+    rematchOfferedAt: string | null;
+    rematchGameId: string | null;
+  };
+  rematchGame?: {
+    id: string;
+  } | null;
 };
 
 function createChessFromServerState(
@@ -96,6 +115,9 @@ export function useOnlineChessGame({
   const [isProcessingDraw, setIsProcessingDraw] =
     useState(false);
 
+  const [isProcessingRematch, setIsProcessingRematch] =
+    useState(false);
+
   const [syncError, setSyncError] =
     useState<string | null>(null);
 
@@ -129,6 +151,15 @@ export function useOnlineChessGame({
   const [drawOfferedAt, setDrawOfferedAt] =
     useState<string | null>(null);
 
+  const [rematchOfferBy, setRematchOfferBy] =
+    useState<OnlineRematchOfferBy>(null);
+
+  const [rematchOfferedAt, setRematchOfferedAt] =
+    useState<string | null>(null);
+
+  const [rematchGameId, setRematchGameId] =
+    useState<string | null>(null);
+
   const gameRef = useRef(game);
   const currentMoveIndexRef =
     useRef(currentMoveIndex);
@@ -137,6 +168,8 @@ export function useOnlineChessGame({
   const isResigningRef =
     useRef(false);
   const isProcessingDrawRef =
+    useRef(false);
+  const isProcessingRematchRef =
     useRef(false);
   const timeoutRefreshRequestedRef =
     useRef(false);
@@ -366,6 +399,9 @@ export function useOnlineChessGame({
         setEndReason(data.game.endReason);
         setDrawOfferBy(data.game.drawOfferBy ?? null);
         setDrawOfferedAt(data.game.drawOfferedAt ?? null);
+        setRematchOfferBy(data.game.rematchOfferBy ?? null);
+        setRematchOfferedAt(data.game.rematchOfferedAt ?? null);
+        setRematchGameId(data.game.rematchGameId ?? null);
 
         if (
           data.game.status === "IN_PROGRESS" &&
@@ -891,6 +927,120 @@ export function useOnlineChessGame({
     return processDrawAction("DECLINE");
   }
 
+  async function processRematchAction(
+    action: OnlineRematchAction,
+  ) {
+    if (
+      isProcessingRematchRef.current ||
+      !isGameOver
+    ) {
+      return false;
+    }
+
+    isProcessingRematchRef.current = true;
+    setIsProcessingRematch(true);
+    setSyncError(null);
+
+    try {
+      const response = await fetch(
+        "/api/online-rematch",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type":
+              "application/json",
+          },
+          body: JSON.stringify({
+            gameId,
+            action,
+          }),
+        },
+      );
+
+      const data =
+        (await response.json()) as OnlineRematchResponse;
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.error ??
+            "The rematch action could not be completed.",
+        );
+      }
+
+      if (data.game) {
+        setRematchOfferBy(
+          data.game.rematchOfferBy ?? null,
+        );
+        setRematchOfferedAt(
+          data.game.rematchOfferedAt ?? null,
+        );
+        setRematchGameId(
+          data.game.rematchGameId ?? null,
+        );
+      }
+
+      if (data.rematchGame?.id) {
+        setRematchOfferBy(null);
+        setRematchOfferedAt(null);
+        setRematchGameId(
+          data.rematchGame.id,
+        );
+      }
+
+      setSyncError(null);
+
+      const realtimeChannel =
+        realtimeChannelRef.current;
+
+      if (realtimeChannel) {
+        try {
+          await realtimeChannel.send({
+            type: "broadcast",
+            event: "game-updated",
+            payload: { gameId },
+          });
+        } catch (error) {
+          console.error(
+            "ONLINE REMATCH REALTIME BROADCAST ERROR:",
+            error,
+          );
+        }
+      }
+
+      return true;
+    } catch (error) {
+      console.error(
+        "ONLINE REMATCH ERROR:",
+        error,
+      );
+
+      setSyncError(
+        error instanceof Error
+          ? error.message
+          : "The rematch action could not be completed.",
+      );
+
+      await fetchGameState();
+
+      return false;
+    } finally {
+      isProcessingRematchRef.current = false;
+      setIsProcessingRematch(false);
+    }
+  }
+
+  function offerRematch() {
+    return processRematchAction("OFFER");
+  }
+
+  function acceptRematch() {
+    return processRematchAction("ACCEPT");
+  }
+
+  function declineRematch() {
+    return processRematchAction("DECLINE");
+  }
+
   function isPromotionMove(
     sourceSquare: string,
     targetSquare: string,
@@ -1084,11 +1234,15 @@ export function useOnlineChessGame({
     endReason,
     drawOfferBy,
     drawOfferedAt,
+    rematchOfferBy,
+    rematchOfferedAt,
+    rematchGameId,
     isPlayerTurn,
     isSyncing,
     isSendingMove,
     isResigning,
     isProcessingDraw,
+    isProcessingRematch,
     syncError,
     whiteTime,
     blackTime,
@@ -1109,6 +1263,9 @@ export function useOnlineChessGame({
     offerDraw,
     acceptDraw,
     declineDraw,
+    offerRematch,
+    acceptRematch,
+    declineRematch,
     handlePromotionSelect,
     handleFlipBoard,
     setBoardOrientation,
