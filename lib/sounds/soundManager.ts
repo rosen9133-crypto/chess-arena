@@ -9,6 +9,8 @@ export type SoundName =
   | "win"
   | "lose"
   | "draw"
+  | "victory-applause"
+  | "defeat"
   | "clock-warning"
   | "clock-tick"
   | "clock-timeout";
@@ -115,6 +117,16 @@ export function preloadSounds() {
     preload: true,
   });
 
+  sounds["victory-applause"] = new Howl({
+    src: ["/sounds/victory-applause.mp3"],
+    preload: true,
+  });
+
+  sounds.defeat = new Howl({
+    src: ["/sounds/defeat.mp3"],
+    preload: true,
+  });
+
   sounds["clock-warning"] = new Howl({
     src: ["/sounds/clock-warning.mp3"],
     preload: true,
@@ -141,6 +153,22 @@ export function playSound(name: SoundName) {
   }
 
   sound.stop();
+  sound.play();
+}
+
+export function playSoundAndThen(
+  name: SoundName,
+  onEnd: () => void,
+) {
+  const sound = sounds[name];
+
+  if (!sound) {
+    onEnd();
+    return;
+  }
+
+  sound.stop();
+  sound.once("end", onEnd);
   sound.play();
 }
 

@@ -610,17 +610,24 @@ export function useOnlineChessGame({
 
     if (
       previousStatus !== "FINISHED" &&
-      status === "FINISHED" &&
-      result
+      status === "FINISHED"
     ) {
+      // The server updates status, result and endReason together, but React
+      // state can expose them across separate renders. Wait until the full
+      // authoritative game-over payload is available before playing sounds.
+      if (!result || !endReason) {
+        return;
+      }
+
       playOnlineGameResultSound(
         result as "WHITE_WIN" | "BLACK_WIN" | "DRAW",
         playerColor,
+        endReason,
       );
     }
 
     previousStatusRef.current = status;
-  }, [playerColor, result, status]);
+  }, [endReason, playerColor, result, status]);
 
   useEffect(() => {
     if (!soundStateInitializedRef.current || isGameOver) {

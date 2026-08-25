@@ -2,6 +2,7 @@ import { type Move } from "chess.js";
 
 import {
   playSound,
+  playSoundAndThen,
   preloadSounds,
   type SoundName,
 } from "@/lib/sounds/soundManager";
@@ -14,12 +15,20 @@ type OnlineGameResult =
   | "DRAW"
   | null;
 
+type OnlineGameEndReason =
+  | "CHECKMATE"
+  | "DRAW"
+  | "RESIGNATION"
+  | "TIMEOUT"
+  | string
+  | null;
+
 export function initializeOnlineGameSounds() {
   preloadSounds();
 }
 
 function getMoveSound(move: Move): SoundName {
-  if (move.san.includes("+") || move.san.includes("#")) {
+  if (move.san.includes("+")) {
     return "check";
   }
 
@@ -42,15 +51,26 @@ function getMoveSound(move: Move): SoundName {
 }
 
 export function playOnlineMoveSound(move: Move) {
+  // The final checkmate sound is handled by the authoritative
+  // FINISHED + CHECKMATE result sequence below.
+  if (move.san.includes("#")) {
+    return;
+  }
+
   playSound(getMoveSound(move));
 }
 
 export function playOnlineGameResultSound(
   result: OnlineGameResult,
   playerColor: ChessColor,
+  endReason: OnlineGameEndReason,
 ) {
   if (result === "DRAW") {
     playSound("draw");
+    return;
+  }
+
+  if (!result) {
     return;
   }
 
@@ -58,7 +78,20 @@ export function playOnlineGameResultSound(
     (result === "WHITE_WIN" && playerColor === "w") ||
     (result === "BLACK_WIN" && playerColor === "b");
 
-  playSound(playerWon ? "win" : "lose");
+  const resultSound: SoundName = playerWon
+    ? "victory-applause"
+    : "defeat";
+
+  if (endReason === "CHECKMATE") {
+    playSoundAndThen("win", () => {
+      playSound(resultSound);
+    });
+
+    return;
+  }
+
+  // Resignation, timeout and other decisive endings do not play Checkmate.
+  playSound(resultSound);
 }
 
 export function playOnlineClockWarningSound() {
