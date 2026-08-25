@@ -3,9 +3,12 @@ type OnlineGameResult =
   | "BLACK_WIN"
   | "DRAW";
 
+type ChessColor = "w" | "b";
+
 type OnlineGameOverDialogProps = {
   isOpen: boolean;
   result: OnlineGameResult | null;
+  playerColor: ChessColor;
   reason: string;
   isRated?: boolean;
   isRatingLoading?: boolean;
@@ -21,6 +24,7 @@ type OnlineGameOverDialogProps = {
 export default function OnlineGameOverDialog({
   isOpen,
   result,
+  playerColor,
   reason,
   isRated = false,
   isRatingLoading = false,
@@ -34,12 +38,16 @@ export default function OnlineGameOverDialog({
 
   const isDraw = result === "DRAW";
 
+  const playerWon =
+    (result === "WHITE_WIN" && playerColor === "w") ||
+    (result === "BLACK_WIN" && playerColor === "b");
+
   const title =
-    result === "WHITE_WIN"
-      ? "White Wins"
-      : result === "BLACK_WIN"
-        ? "Black Wins"
-        : "Draw";
+    result === "DRAW"
+      ? "Draw"
+      : playerWon
+        ? "You Win"
+        : "You Lose";
 
   const score =
     result === "WHITE_WIN"
@@ -47,6 +55,18 @@ export default function OnlineGameOverDialog({
       : result === "BLACK_WIN"
         ? "0 – 1"
         : "½ – ½";
+
+  const resultIcon = isDraw
+    ? "/icons/results/draw.png"
+    : playerWon
+      ? "/icons/results/win.png"
+      : "/icons/results/lose.png";
+
+  const resultIconAlt = isDraw
+    ? "Draw"
+    : playerWon
+      ? "Victory"
+      : "Defeat";
 
   const oldRating =
     rating?.oldRating !== null &&
@@ -89,8 +109,12 @@ export default function OnlineGameOverDialog({
 
         <div className="px-6 pb-8 pt-10 sm:px-8">
           <div className="text-center">
-            <div className="mb-4 text-6xl">
-              {isDraw ? "🤝" : "🏆"}
+            <div className="mb-4 flex h-24 items-center justify-center">
+              <img
+                src={resultIcon}
+                alt={resultIconAlt}
+                className="h-24 w-24 object-contain drop-shadow-[0_0_20px_rgba(255,255,255,0.12)]"
+              />
             </div>
 
             <p className="text-xs font-bold uppercase tracking-[0.3em] text-slate-500">
@@ -100,8 +124,10 @@ export default function OnlineGameOverDialog({
             <h2
               className={`mt-3 text-3xl font-extrabold ${
                 isDraw
-                  ? "text-slate-200"
-                  : "text-yellow-400"
+                  ? "text-sky-400"
+                  : playerWon
+                    ? "text-yellow-400"
+                    : "text-slate-200"
               }`}
             >
               {title}
@@ -111,8 +137,18 @@ export default function OnlineGameOverDialog({
               {reason}
             </p>
 
-            <div className="mx-auto mt-6 flex max-w-[240px] items-center justify-center rounded-2xl border border-yellow-400/30 bg-yellow-400/10 px-6 py-4">
-              <span className="text-4xl font-black tracking-wider text-yellow-300">
+            <div
+              className={`mx-auto mt-6 flex max-w-[240px] items-center justify-center rounded-2xl px-6 py-4 ${
+                isDraw
+                  ? "border border-sky-400/30 bg-sky-400/10"
+                  : "border border-yellow-400/30 bg-yellow-400/10"
+              }`}
+            >
+              <span
+                className={`text-4xl font-black tracking-wider ${
+                  isDraw ? "text-sky-300" : "text-yellow-300"
+                }`}
+              >
                 {score}
               </span>
             </div>

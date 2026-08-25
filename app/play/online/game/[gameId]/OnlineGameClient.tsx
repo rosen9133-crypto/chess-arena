@@ -4,10 +4,13 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Chessboard } from "react-chessboard";
 
+import CapturedPieces from "@/components/CapturedPieces";
+import { MoveHistory } from "@/components/MoveHistory";
 import OnlineDrawDialog from "@/components/OnlineDrawDialog";
 import OnlineGameOverDialog from "@/components/OnlineGameOverDialog";
 import OnlineResignDialog from "@/components/OnlineResignDialog";
 import PromotionDialog from "@/components/PromotionDialog";
+import SoundControl from "@/components/SoundControl";
 import { useOnlineChessGame } from "@/hooks/useOnlineChessGame";
 
 type ChessColor = "w" | "b";
@@ -147,6 +150,9 @@ export default function OnlineGameClient({
   const {
     displayGame,
     history,
+    currentMoveIndex,
+    whiteCaptured,
+    blackCaptured,
     isGameOver,
     status,
     result,
@@ -183,6 +189,11 @@ export default function OnlineGameClient({
     declineRematch,
     handlePromotionSelect,
     handleFlipBoard,
+    goToMove,
+    goToFirstMove,
+    goToPreviousMove,
+    goToNextMove,
+    goToLastMove,
   } = useOnlineChessGame({
     gameId,
     playerColor,
@@ -358,6 +369,15 @@ export default function OnlineGameClient({
           ? "Draw"
           : "Finished";
 
+  const moveHistoryResult =
+    authoritativeResult === "WHITE_WIN"
+      ? "1-0"
+      : authoritativeResult === "BLACK_WIN"
+        ? "0-1"
+        : authoritativeResult === "DRAW"
+          ? "½-½"
+          : undefined;
+
   const turnLabel = isGameOver
     ? "Game finished"
     : displayGame.turn() === "w"
@@ -379,6 +399,7 @@ export default function OnlineGameClient({
           !isGameOverDialogClosed
         }
         result={authoritativeResult}
+        playerColor={playerColor}
         reason={gameOverReason}
         isRated={isRatedGame || rated}
         isRatingLoading={isProcessingRating}
@@ -538,7 +559,8 @@ export default function OnlineGameClient({
       </div>
 
       <section className="mt-8">
-        <div className="mx-auto w-full max-w-[620px]">
+        <div className="mx-auto grid w-full max-w-[940px] items-start gap-5 lg:grid-cols-[minmax(0,620px)_288px]">
+          <div className="w-full min-w-0">
           <PlayerClock
             username={opponent.username}
             color={opponentColor}
@@ -762,6 +784,29 @@ export default function OnlineGameClient({
           <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-center text-sm font-semibold text-emerald-200">
             ● Online game synchronized
           </div>
+          </div>
+
+          <aside className="flex w-full min-w-0 flex-col items-center gap-4 lg:sticky lg:top-6 lg:items-stretch">
+            <div className="w-full">
+              <SoundControl />
+            </div>
+
+            <CapturedPieces
+              whiteCaptured={whiteCaptured}
+              blackCaptured={blackCaptured}
+            />
+
+            <MoveHistory
+              history={history}
+              currentMoveIndex={currentMoveIndex}
+              result={moveHistoryResult}
+              onMoveSelect={goToMove}
+              onFirstMove={goToFirstMove}
+              onPreviousMove={goToPreviousMove}
+              onNextMove={goToNextMove}
+              onLastMove={goToLastMove}
+            />
+          </aside>
         </div>
       </section>
     </>

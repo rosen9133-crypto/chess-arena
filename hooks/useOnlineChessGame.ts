@@ -5,7 +5,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Chess, type Square } from "chess.js";
+import { Chess, type Move, type Square } from "chess.js";
 
 import {
   getCheckSquareStyles,
@@ -14,6 +14,14 @@ import {
 import { getCapturedPieces } from "@/lib/gameUtils";
 import { createGameWithHistory } from "@/lib/history";
 import { supabase } from "@/lib/supabase";
+import {
+  initializeOnlineGameSounds,
+  playOnlineClockTickSound,
+  playOnlineClockTimeoutSound,
+  playOnlineClockWarningSound,
+  playOnlineGameResultSound,
+  playOnlineMoveSound,
+} from "@/lib/sounds/onlineGameSounds";
 import type {
   BoardOrientation,
   PendingPromotion,
@@ -218,6 +226,16 @@ export function useOnlineChessGame({
     useRef(false);
   const realtimeChannelRef =
     useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const soundStateInitializedRef = useRef(false);
+  const lastSoundedMoveIndexRef = useRef(0);
+  const previousStatusRef = useRef<OnlineGameStatus | null>(null);
+  const clockWarningPlayedRef = useRef(false);
+  const clockTickSecondRef = useRef<number | null>(null);
+  const clockTimeoutPlayedRef = useRef(false);
+
+  useEffect(() => {
+    initializeOnlineGameSounds();
+  }, []);
 
   useEffect(() => {
     gameRef.current = game;
@@ -321,6 +339,20 @@ export function useOnlineChessGame({
       }
 
       const currentGame = gameRef.current;
+      const serverHistory = serverGame.history({ verbose: true }) as Move[];
+      const serverMoveIndex = serverHistory.length;
+
+      if (!soundStateInitializedRef.current) {
+        lastSoundedMoveIndexRef.current = serverMoveIndex;
+      } else if (serverMoveIndex > lastSoundedMoveIndexRef.current) {
+        const latestMove = serverHistory[serverMoveIndex - 1];
+
+        if (latestMove) {
+          playOnlineMoveSound(latestMove);
+        }
+
+        lastSoundedMoveIndexRef.current = serverMoveIndex;
+      }
 
       const currentFen = currentGame.fen();
       const currentPgn = currentGame.pgn();
@@ -541,6 +573,13 @@ export function useOnlineChessGame({
           authoritativeGame.turn(),
         );
 
+        if (!soundStateInitializedRef.current) {
+          lastSoundedMoveIndexRef.current =
+            authoritativeGame.history().length;
+          previousStatusRef.current = data.game.status;
+          soundStateInitializedRef.current = true;
+        }
+
         setSyncError(null);
       } catch (error) {
         console.error(
@@ -561,6 +600,74 @@ export function useOnlineChessGame({
       processRatedResult,
       ratingResult,
     ]);
+
+  useEffect(() => {
+    if (!soundStateInitializedRef.current || !status) {
+      return;
+    }
+
+    const previousStatus = previousStatusRef.current;
+
+    if (
+      previousStatus !== "FINISHED" &&
+      status === "FINISHED" &&
+      result
+    ) {
+      playOnlineGameResultSound(
+        result as "WHITE_WIN" | "BLACK_WIN" | "DRAW",
+        playerColor,
+      );
+    }
+
+    previousStatusRef.current = status;
+  }, [playerColor, result, status]);
+
+  useEffect(() => {
+    if (!soundStateInitializedRef.current || isGameOver) {
+      return;
+    }
+
+    const playerTime =
+      playerColor === "w" ? whiteTime : blackTime;
+
+    if (playerTime > 60) {
+      clockWarningPlayedRef.current = false;
+    }
+
+    if (playerTime > 10) {
+      clockTickSecondRef.current = null;
+    }
+
+    if (playerTime > 0) {
+      clockTimeoutPlayedRef.current = false;
+    }
+
+    if (
+      playerTime <= 60 &&
+      playerTime > 10 &&
+      !clockWarningPlayedRef.current
+    ) {
+      clockWarningPlayedRef.current = true;
+      playOnlineClockWarningSound();
+    }
+
+    if (playerTime <= 10 && playerTime > 0) {
+      const wholeSecond = Math.ceil(playerTime);
+
+      if (clockTickSecondRef.current !== wholeSecond) {
+        clockTickSecondRef.current = wholeSecond;
+        playOnlineClockTickSound();
+      }
+    }
+
+    if (
+      playerTime <= 0 &&
+      !clockTimeoutPlayedRef.current
+    ) {
+      clockTimeoutPlayedRef.current = true;
+      playOnlineClockTimeoutSound();
+    }
+  }, [blackTime, isGameOver, playerColor, whiteTime]);
 
   useEffect(() => {
     if (
@@ -686,10 +793,20 @@ export function useOnlineChessGame({
     gameRef.current = optimisticGame;
     setGame(optimisticGame);
 
-    const optimisticMoveIndex = optimisticGame.history().length;
+    const optimisticHistory =
+      optimisticGame.history({ verbose: true }) as Move[];
+    const optimisticMoveIndex = optimisticHistory.length;
+    const optimisticMove =
+      optimisticHistory[optimisticMoveIndex - 1];
+
     currentMoveIndexRef.current = optimisticMoveIndex;
     setCurrentMoveIndex(optimisticMoveIndex);
     setPendingPromotion(null);
+
+    if (optimisticMove) {
+      playOnlineMoveSound(optimisticMove);
+      lastSoundedMoveIndexRef.current = optimisticMoveIndex;
+    }
 
     try {
       const response = await fetch(
