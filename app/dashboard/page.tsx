@@ -100,7 +100,9 @@ export default async function DashboardPage() {
     select: {
       id: true,
       username: true,
-      rating: true,
+      bulletRating: true,
+      blitzRating: true,
+      rapidRating: true,
       wins: true,
       losses: true,
       draws: true,
@@ -165,9 +167,17 @@ export default async function DashboardPage() {
             <strong>👤 Потребител:</strong> {user.username}
           </p>
 
-          <p>
-            <strong>⭐ Рейтинг:</strong> {user.rating}
-          </p>
+          <div>
+            <p className="mb-2">
+              <strong>⭐ Рейтинг</strong>
+            </p>
+
+            <div className="space-y-1 pl-5 text-sm text-slate-300">
+              <p>⚡ <strong>Bullet:</strong> {Math.round(user.bulletRating)}</p>
+              <p>🔥 <strong>Blitz:</strong> {Math.round(user.blitzRating)}</p>
+              <p>⏱️ <strong>Rapid:</strong> {Math.round(user.rapidRating)}</p>
+            </div>
+          </div>
 
           <p>
             <strong>🏆 Победи:</strong> {user.wins}

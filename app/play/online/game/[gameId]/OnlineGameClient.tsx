@@ -770,6 +770,17 @@ export default function OnlineGameClient({
                   Rematch offer sent — waiting for your opponent.
                 </div>
               )}
+
+              <button
+                type="button"
+                onClick={() => {
+                  router.push("/dashboard");
+                  router.refresh();
+                }}
+                className="mt-3 w-full rounded-xl border border-slate-600 bg-slate-800 px-5 py-3 font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
+              >
+                🏠 Back to Dashboard
+              </button>
             </div>
           )}
 

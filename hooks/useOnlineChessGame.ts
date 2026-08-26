@@ -610,15 +610,9 @@ export function useOnlineChessGame({
 
     if (
       previousStatus !== "FINISHED" &&
-      status === "FINISHED"
+      status === "FINISHED" &&
+      result
     ) {
-      // The server updates status, result and endReason together, but React
-      // state can expose them across separate renders. Wait until the full
-      // authoritative game-over payload is available before playing sounds.
-      if (!result || !endReason) {
-        return;
-      }
-
       playOnlineGameResultSound(
         result as "WHITE_WIN" | "BLACK_WIN" | "DRAW",
         playerColor,
@@ -722,7 +716,7 @@ export function useOnlineChessGame({
       )
       .subscribe((status, error) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.error("ONLINE REALTIME CHANNEL ERROR:", status, error);
+          console.warn("ONLINE REALTIME CHANNEL WARNING:", status, error);
         }
       });
 
