@@ -11,14 +11,14 @@ type GameEndReason = "CHECKMATE" | "DRAW" | "RESIGNATION" | "TIMEOUT" | null;
 function getResultLabel(result: GameResult, isWhite: boolean) {
   if (result === null) {
     return {
-      label: "Завършена",
+      label: "Finished",
       className: "text-slate-300",
     };
   }
 
   if (result === "DRAW") {
     return {
-      label: "Реми",
+      label: "Draw",
       className: "text-sky-300",
     };
   }
@@ -29,13 +29,13 @@ function getResultLabel(result: GameResult, isWhite: boolean) {
 
   if (didWin) {
     return {
-      label: "Победа",
+      label: "Victory",
       className: "text-emerald-400",
     };
   }
 
   return {
-    label: "Загуба",
+    label: "Defeat",
     className: "text-rose-400",
   };
 }
@@ -43,15 +43,15 @@ function getResultLabel(result: GameResult, isWhite: boolean) {
 function getEndReasonLabel(endReason: GameEndReason) {
   switch (endReason) {
     case "CHECKMATE":
-      return "Мат";
+      return "Checkmate";
     case "RESIGNATION":
-      return "Предаване";
+      return "Resignation";
     case "TIMEOUT":
-      return "Изтекло време";
+      return "Timeout";
     case "DRAW":
-      return "Реми";
+      return "Draw";
     default:
-      return "Завършена";
+      return "Finished";
   }
 }
 
@@ -158,18 +158,18 @@ export default async function DashboardPage() {
           </h1>
 
           <h2 className="text-3xl font-bold">
-            Добре дошъл, {user.username}!
+            Welcome, {user.username}!
           </h2>
         </div>
 
         <section className="mx-auto mb-10 w-full max-w-[420px] space-y-4 rounded-xl bg-slate-800 p-8 shadow-xl">
           <p>
-            <strong>👤 Потребител:</strong> {user.username}
+            <strong>👤 Player:</strong> {user.username}
           </p>
 
           <div>
             <p className="mb-2">
-              <strong>⭐ Рейтинг</strong>
+              <strong>⭐ Rating</strong>
             </p>
 
             <div className="space-y-1 pl-5 text-sm text-slate-300">
@@ -180,15 +180,15 @@ export default async function DashboardPage() {
           </div>
 
           <p>
-            <strong>🏆 Победи:</strong> {user.wins}
+            <strong>🏆 Wins:</strong> {user.wins}
           </p>
 
           <p>
-            <strong>❌ Загуби:</strong> {user.losses}
+            <strong>❌ Losses:</strong> {user.losses}
           </p>
 
           <p>
-            <strong>🤝 Ремита:</strong> {user.draws}
+            <strong>🤝 Draws:</strong> {user.draws}
           </p>
 
           <Link
@@ -202,18 +202,27 @@ export default async function DashboardPage() {
         </section>
 
         <section className="overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 shadow-xl">
-          <div className="border-b border-slate-700 px-6 py-5">
-            <h3 className="text-2xl font-bold text-yellow-400">
-              ♟️ Последни онлайн партии
-            </h3>
-            <p className="mt-1 text-sm text-slate-400">
-              Последните 10 завършени партии
-            </p>
+          <div className="flex items-center justify-between gap-4 border-b border-slate-700 px-6 py-5">
+            <div>
+              <h3 className="text-2xl font-bold text-yellow-400">
+                ♟️ Recent Online Games
+              </h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Your last 10 completed games
+              </p>
+            </div>
+
+            <Link
+              href="/history"
+              className="shrink-0 font-bold text-yellow-400 transition hover:text-yellow-300"
+            >
+              View All Games →
+            </Link>
           </div>
 
           {recentGames.length === 0 ? (
             <div className="px-6 py-12 text-center text-slate-400">
-              Все още нямаш завършени онлайн партии.
+              You haven't completed any online games yet.
             </div>
           ) : (
             <div className="divide-y divide-slate-700">
@@ -241,17 +250,17 @@ export default async function DashboardPage() {
                   >
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Противник
+                        Opponent
                       </p>
                       <p className="mt-1 text-lg font-bold">{opponent}</p>
                       <p className="mt-1 text-sm text-slate-400">
-                        Играл си с {isWhite ? "белите" : "черните"}
+                        Played as {isWhite ? "White" : "Black"}
                       </p>
                     </div>
 
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Резултат
+                        Result
                       </p>
                       <p className={`mt-1 text-lg font-bold ${result.className}`}>
                         {result.label}
@@ -263,7 +272,7 @@ export default async function DashboardPage() {
 
                     <div>
                       <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Партия
+                        Game
                       </p>
                       <p className="mt-1 font-bold">
                         {formatTimeControl(
@@ -273,7 +282,7 @@ export default async function DashboardPage() {
                         · {game.timeControl}
                       </p>
                       <p className="mt-1 text-sm text-slate-400">
-                        {game.rated ? "Рейтингова" : "Безрейтингова"}
+                        {game.rated ? "Rated" : "Casual"}
                         {game.rated && ratingDelta ? (
                           <span
                             className={`ml-2 font-bold ${getRatingDeltaClassName(
@@ -288,13 +297,13 @@ export default async function DashboardPage() {
 
                     <div className="sm:text-right">
                       <p className="text-sm text-slate-400">
-                        {new Intl.DateTimeFormat("bg-BG", {
+                        {new Intl.DateTimeFormat("en-GB", {
                           dateStyle: "medium",
                           timeStyle: "short",
                         }).format(finishedAt)}
                       </p>
                       <p className="mt-2 font-bold text-yellow-400">
-                        Виж партията →
+                        View Game →
                       </p>
                     </div>
                   </Link>
