@@ -15,6 +15,19 @@ import { useOnlineChessGame } from "@/hooks/useOnlineChessGame";
 
 type ChessColor = "w" | "b";
 
+type OpeningInfo = {
+  eco: string;
+  name: string;
+  pgn: string;
+  matchedMoves: number;
+};
+
+type OpeningApiResponse = {
+  success: boolean;
+  opening: OpeningInfo | null;
+  error?: string;
+};
+
 type OnlineGameClientProps = {
   gameId: string;
   playerColor: ChessColor;
@@ -259,6 +272,9 @@ export default function OnlineGameClient({
   const [dismissedDrawOfferAt, setDismissedDrawOfferAt] =
     useState<string | null>(null);
 
+  const [opening, setOpening] =
+    useState<OpeningInfo | null>(null);
+
   const playerDrawColor =
     playerColor === "w" ? "WHITE" : "BLACK";
 
@@ -297,6 +313,61 @@ export default function OnlineGameClient({
       router.push(`/play/online/game/${rematchGameId}`);
     }
   }, [rematchGameId, router]);
+
+  const openingMoves = history.join(" ");
+
+  useEffect(() => {
+    if (!openingMoves) {
+      setOpening(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    async function recognizeOpening() {
+      try {
+        const response = await fetch("/api/opening", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            pgn: openingMoves,
+          }),
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data =
+          (await response.json()) as OpeningApiResponse;
+
+        if (data.success) {
+          setOpening(data.opening);
+        }
+      } catch (error) {
+        if (
+          error instanceof DOMException &&
+          error.name === "AbortError"
+        ) {
+          return;
+        }
+
+        console.error(
+          "OPENING RECOGNITION REQUEST ERROR:",
+          error,
+        );
+      }
+    }
+
+    void recognizeOpening();
+
+    return () => {
+      controller.abort();
+    };
+  }, [openingMoves]);
 
   const authoritativeResult =
     result === "WHITE_WIN" ||
@@ -801,6 +872,18 @@ export default function OnlineGameClient({
             <div className="w-full">
               <SoundControl />
             </div>
+
+            {opening && (
+              <div className="w-full rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-yellow-400">
+                  Opening
+                </p>
+
+                <p className="mt-1 text-sm font-black text-white">
+                  {opening.eco} · {opening.name}
+                </p>
+              </div>
+            )}
 
             <CapturedPieces
               whiteCaptured={whiteCaptured}
