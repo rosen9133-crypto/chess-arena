@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Chessboard } from "react-chessboard";
+import type { Square } from "chess.js";
 
 import CapturedPieces from "@/components/CapturedPieces";
 import { MoveHistory } from "@/components/MoveHistory";
@@ -276,6 +277,114 @@ export default function OnlineGameClient({
 
   const [opening, setOpening] =
     useState<OpeningInfo | null>(null);
+
+  const [selectedSquare, setSelectedSquare] =
+    useState<Square | null>(null);
+
+  const legalMoveSquares = useMemo(() => {
+    if (
+      !selectedSquare ||
+      !isPlayerTurn ||
+      isGameOver
+    ) {
+      return [];
+    }
+
+    return displayGame.moves({
+      square: selectedSquare,
+      verbose: true,
+    });
+  }, [
+    displayGame,
+    isGameOver,
+    isPlayerTurn,
+    selectedSquare,
+  ]);
+
+  const clickMoveSquareStyles = useMemo(() => {
+    const styles: Record<
+      string,
+      React.CSSProperties
+    > = {};
+
+    if (selectedSquare) {
+      styles[selectedSquare] = {
+        boxShadow:
+          "inset 0 0 0 4px rgba(250, 204, 21, 0.95)",
+        backgroundColor:
+          "rgba(250, 204, 21, 0.28)",
+      };
+    }
+
+    for (const move of legalMoveSquares) {
+      const targetPiece = displayGame.get(
+        move.to as Square,
+      );
+
+      styles[move.to] = targetPiece
+        ? {
+            background:
+              "radial-gradient(circle, transparent 0 48%, rgba(250, 204, 21, 0.95) 50% 54%, transparent 56%)",
+          }
+        : {
+            background:
+              "radial-gradient(circle, rgba(37, 99, 235, 0.85) 0 18%, transparent 20%)",
+          };
+    }
+
+    return styles;
+  }, [
+    displayGame,
+    legalMoveSquares,
+    selectedSquare,
+  ]);
+
+  const boardSquareStyles = useMemo(
+    () => ({
+      ...squareStyles,
+      ...clickMoveSquareStyles,
+    }),
+    [clickMoveSquareStyles, squareStyles],
+  );
+
+  function handleSquareClick(square: string) {
+    if (!isPlayerTurn || isGameOver) {
+      setSelectedSquare(null);
+      return;
+    }
+
+    const clickedSquare = square as Square;
+    const clickedPiece =
+      displayGame.get(clickedSquare);
+
+    if (selectedSquare === clickedSquare) {
+      setSelectedSquare(null);
+      return;
+    }
+
+    if (selectedSquare) {
+      const isLegalTarget =
+        legalMoveSquares.some(
+          (move) => move.to === clickedSquare,
+        );
+
+      if (isLegalTarget) {
+        onDrop(selectedSquare, clickedSquare);
+        setSelectedSquare(null);
+        return;
+      }
+    }
+
+    if (
+      clickedPiece &&
+      clickedPiece.color === playerColor
+    ) {
+      setSelectedSquare(clickedSquare);
+      return;
+    }
+
+    setSelectedSquare(null);
+  }
 
   const playerDrawColor =
     playerColor === "w" ? "WHITE" : "BLACK";
@@ -671,8 +780,15 @@ export default function OnlineGameClient({
             <Chessboard
               position={displayGame.fen()}
               onPieceDrop={onDrop}
+              onSquareClick={handleSquareClick}
               boardOrientation={boardOrientation}
-              customSquareStyles={squareStyles}
+              customLightSquareStyle={{
+                backgroundColor: "#E8EDF2",
+              }}
+              customDarkSquareStyle={{
+                backgroundColor: "#4F6F8F",
+              }}
+              customSquareStyles={boardSquareStyles}
             />
           </div>
 
