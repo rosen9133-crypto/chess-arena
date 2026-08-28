@@ -60,6 +60,8 @@ export async function POST(request: Request) {
           whiteTimeMs: true,
           blackTimeMs: true,
           clockStartedAt: true,
+          drawOfferBy: true,
+          drawOfferedAt: true,
         },
       });
 
@@ -133,50 +135,181 @@ export async function POST(request: Request) {
           (activeColor === "b" ? elapsedMs : 0),
       );
 
+      const hasWhiteTimedOut =
+        activeColor === "w" &&
+        updatedWhiteTimeMs <= 0;
+
+      const hasBlackTimedOut =
+        activeColor === "b" &&
+        updatedBlackTimeMs <= 0;
+
+      if (hasWhiteTimedOut || hasBlackTimedOut) {
+        const timeoutResult =
+          hasWhiteTimedOut
+            ? ("BLACK_WIN" as const)
+            : ("WHITE_WIN" as const);
+
+        const timeoutUpdate =
+          await tx.game.updateMany({
+            where: {
+              id: game.id,
+              status: "IN_PROGRESS",
+              fen: game.fen,
+              pgn: game.pgn,
+              whiteTimeMs: game.whiteTimeMs,
+              blackTimeMs: game.blackTimeMs,
+              clockStartedAt: game.clockStartedAt,
+            },
+            data: {
+              status: "FINISHED",
+              result: timeoutResult,
+              endReason: "TIMEOUT",
+              whiteTimeMs: Math.round(
+                updatedWhiteTimeMs,
+              ),
+              blackTimeMs: Math.round(
+                updatedBlackTimeMs,
+              ),
+              clockStartedAt: null,
+              drawOfferBy: null,
+              drawOfferedAt: null,
+              endedAt: now,
+            },
+          });
+
+        if (timeoutUpdate.count === 0) {
+          return {
+            error: "Game state changed",
+            status: 409,
+          } as const;
+        }
+
+        const timeoutGame =
+          await tx.game.findUnique({
+            where: {
+              id: game.id,
+            },
+            select: {
+              id: true,
+              status: true,
+              result: true,
+              endReason: true,
+              fen: true,
+              pgn: true,
+              whiteTimeMs: true,
+              blackTimeMs: true,
+              clockStartedAt: true,
+              drawOfferBy: true,
+              drawOfferedAt: true,
+
+              whitePlayer: {
+                select: {
+                  id: true,
+                  username: true,
+                },
+              },
+
+              blackPlayer: {
+                select: {
+                  id: true,
+                  username: true,
+                },
+              },
+            },
+          });
+
+        if (!timeoutGame) {
+          return {
+            error: "Game not found",
+            status: 404,
+          } as const;
+        }
+
+        return {
+          success: true,
+          game: timeoutGame,
+        } as const;
+      }
+
       const gameResult = isWhitePlayer
         ? ("BLACK_WIN" as const)
         : ("WHITE_WIN" as const);
 
-      const updatedGame = await tx.game.update({
-        where: {
-          id: game.id,
-          status: "IN_PROGRESS",
-        },
-        data: {
-          status: "FINISHED",
-          result: gameResult,
-          endReason: "RESIGNATION",
-          whiteTimeMs: Math.round(updatedWhiteTimeMs),
-          blackTimeMs: Math.round(updatedBlackTimeMs),
-          clockStartedAt: null,
-          endedAt: now,
-        },
-        select: {
-          id: true,
-          status: true,
-          result: true,
-          endReason: true,
-          fen: true,
-          pgn: true,
-          whiteTimeMs: true,
-          blackTimeMs: true,
-          clockStartedAt: true,
+      const updateResult =
+        await tx.game.updateMany({
+          where: {
+            id: game.id,
+            status: "IN_PROGRESS",
+            fen: game.fen,
+            pgn: game.pgn,
+            whiteTimeMs: game.whiteTimeMs,
+            blackTimeMs: game.blackTimeMs,
+            clockStartedAt: game.clockStartedAt,
+          },
+          data: {
+            status: "FINISHED",
+            result: gameResult,
+            endReason: "RESIGNATION",
+            whiteTimeMs: Math.round(
+              updatedWhiteTimeMs,
+            ),
+            blackTimeMs: Math.round(
+              updatedBlackTimeMs,
+            ),
+            clockStartedAt: null,
+            drawOfferBy: null,
+            drawOfferedAt: null,
+            endedAt: now,
+          },
+        });
 
-          whitePlayer: {
-            select: {
-              id: true,
-              username: true,
+      if (updateResult.count === 0) {
+        return {
+          error: "Game state changed",
+          status: 409,
+        } as const;
+      }
+
+      const updatedGame =
+        await tx.game.findUnique({
+          where: {
+            id: game.id,
+          },
+          select: {
+            id: true,
+            status: true,
+            result: true,
+            endReason: true,
+            fen: true,
+            pgn: true,
+            whiteTimeMs: true,
+            blackTimeMs: true,
+            clockStartedAt: true,
+            drawOfferBy: true,
+            drawOfferedAt: true,
+
+            whitePlayer: {
+              select: {
+                id: true,
+                username: true,
+              },
+            },
+
+            blackPlayer: {
+              select: {
+                id: true,
+                username: true,
+              },
             },
           },
+        });
 
-          blackPlayer: {
-            select: {
-              id: true,
-              username: true,
-            },
-          },
-        },
-      });
+      if (!updatedGame) {
+        return {
+          error: "Game not found",
+          status: 404,
+        } as const;
+      }
 
       return {
         success: true,

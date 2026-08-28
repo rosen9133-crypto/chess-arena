@@ -14,6 +14,7 @@ import {
 import { getCapturedPieces } from "@/lib/gameUtils";
 import { createGameWithHistory } from "@/lib/history";
 import { supabase } from "@/lib/supabase";
+import { stopSound } from "@/lib/sounds/soundManager";
 import {
   initializeOnlineGameSounds,
   playOnlineClockTickSound,
@@ -229,8 +230,11 @@ export function useOnlineChessGame({
   const soundStateInitializedRef = useRef(false);
   const lastSoundedMoveIndexRef = useRef(0);
   const previousStatusRef = useRef<OnlineGameStatus | null>(null);
-  const clockWarningPlayedRef = useRef(false);
-  const clockTickSecondRef = useRef<number | null>(null);
+  const clockWarningPlayedRef = useRef<Record<ChessColor, boolean>>({
+    w: false,
+    b: false,
+  });
+  const clockTickSecondRef = useRef<string | null>(null);
   const clockTimeoutPlayedRef = useRef(false);
 
   useEffect(() => {
@@ -624,19 +628,30 @@ export function useOnlineChessGame({
   }, [endReason, playerColor, result, status]);
 
   useEffect(() => {
-    if (!soundStateInitializedRef.current || isGameOver) {
+    if (!soundStateInitializedRef.current) {
+      return;
+    }
+
+    if (isGameOver) {
+      stopSound("clock-tick");
       return;
     }
 
     const playerTime =
       playerColor === "w" ? whiteTime : blackTime;
 
-    if (playerTime > 60) {
-      clockWarningPlayedRef.current = false;
-    }
+    const displayedPlayerSecond = Math.max(
+      0,
+      Math.ceil(playerTime),
+    );
 
-    if (playerTime > 10) {
+    const isPlayerClockActive =
+      isClockRunning && activeClock === playerColor;
+
+    if (!isPlayerClockActive) {
+      stopSound("clock-tick");
       clockTickSecondRef.current = null;
+      return;
     }
 
     if (playerTime > 0) {
@@ -644,31 +659,44 @@ export function useOnlineChessGame({
     }
 
     if (
-      playerTime <= 60 &&
-      playerTime > 10 &&
-      !clockWarningPlayedRef.current
+      displayedPlayerSecond <= 59 &&
+      displayedPlayerSecond > 10 &&
+      !clockWarningPlayedRef.current[playerColor]
     ) {
-      clockWarningPlayedRef.current = true;
+      clockWarningPlayedRef.current[playerColor] = true;
       playOnlineClockWarningSound();
     }
 
-    if (playerTime <= 10 && playerTime > 0) {
-      const wholeSecond = Math.ceil(playerTime);
-
-      if (clockTickSecondRef.current !== wholeSecond) {
-        clockTickSecondRef.current = wholeSecond;
+    if (
+      displayedPlayerSecond <= 11 &&
+      displayedPlayerSecond > 0
+    ) {
+      if (clockTickSecondRef.current !== playerColor) {
+        clockTickSecondRef.current = playerColor;
         playOnlineClockTickSound();
       }
+    } else {
+      stopSound("clock-tick");
+      clockTickSecondRef.current = null;
     }
 
-    if (
-      playerTime <= 0 &&
-      !clockTimeoutPlayedRef.current
-    ) {
-      clockTimeoutPlayedRef.current = true;
-      playOnlineClockTimeoutSound();
+    if (playerTime <= 0) {
+      stopSound("clock-tick");
+      clockTickSecondRef.current = null;
+
+      if (!clockTimeoutPlayedRef.current) {
+        clockTimeoutPlayedRef.current = true;
+        playOnlineClockTimeoutSound();
+      }
     }
-  }, [blackTime, isGameOver, playerColor, whiteTime]);
+  }, [
+    activeClock,
+    blackTime,
+    isClockRunning,
+    isGameOver,
+    playerColor,
+    whiteTime,
+  ]);
 
   useEffect(() => {
     if (

@@ -133,7 +133,7 @@ export function preloadSounds() {
   });
 
   sounds["clock-tick"] = new Howl({
-    src: ["/sounds/clock-tick.mp3"],
+    src: ["/sounds/clock-tick.wav"],
     preload: true,
   });
 

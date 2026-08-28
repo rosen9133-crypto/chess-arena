@@ -75,13 +75,14 @@ function GameInfoRow({
   );
 }
 
-function formatClockTime(seconds: number) {
-  const safeSeconds = Math.max(0, seconds);
+function getDisplayedClockSeconds(seconds: number) {
+  return Math.max(0, Math.ceil(seconds));
+}
 
-  const minutes = Math.floor(safeSeconds / 60);
-  const remainingSeconds = Math.floor(
-    safeSeconds % 60,
-  );
+function formatClockTime(seconds: number) {
+  const totalSeconds = getDisplayedClockSeconds(seconds);
+  const minutes = Math.floor(totalSeconds / 60);
+  const remainingSeconds = totalSeconds % 60;
 
   return `${minutes}:${remainingSeconds
     .toString()
@@ -103,8 +104,9 @@ function PlayerClock({
   active,
   label,
 }: PlayerClockProps) {
-  const isCritical = time <= 10;
-  const isLow = time < 60;
+  const displayedSeconds = getDisplayedClockSeconds(time);
+  const isCritical = displayedSeconds <= 10;
+  const isLow = displayedSeconds < 60;
 
   const timeColorClass = isCritical
     ? "text-red-400"
