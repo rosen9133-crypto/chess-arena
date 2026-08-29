@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Chessboard } from "react-chessboard";
 import type { Square } from "chess.js";
 
-import CapturedPieces from "@/components/CapturedPieces";
+import ChessPiece from "@/components/ChessPiece";
 import { MoveHistory } from "@/components/MoveHistory";
 import OnlineDrawDialog from "@/components/OnlineDrawDialog";
 import OnlineGameOverDialog from "@/components/OnlineGameOverDialog";
@@ -39,10 +39,12 @@ type OnlineGameClientProps = {
   whitePlayer: {
     id: string;
     username: string;
+    rating: number;
   };
   blackPlayer: {
     id: string;
     username: string;
+    rating: number;
   };
 };
 
@@ -92,18 +94,24 @@ function formatClockTime(seconds: number) {
 
 type PlayerClockProps = {
   username: string;
+  rating: number;
   color: ChessColor;
   time: number;
   active: boolean;
   label: string;
+  capturedPieces: string[];
+  materialAdvantage: number;
 };
 
 function PlayerClock({
   username,
+  rating,
   color,
   time,
   active,
   label,
+  capturedPieces,
+  materialAdvantage,
 }: PlayerClockProps) {
   const displayedSeconds = getDisplayedClockSeconds(time);
   const isCritical = displayedSeconds <= 10;
@@ -117,39 +125,87 @@ function PlayerClock({
 
   return (
     <div
-      className={`rounded-xl border px-4 py-3 transition-all ${
+      className={`rounded-xl border px-3 py-1.5 transition-all ${
         active
           ? "border-emerald-400/70 bg-emerald-400/10 shadow-lg shadow-emerald-950/20"
-          : "border-slate-700 bg-slate-900"
+          : "border-slate-700 bg-slate-950/85"
       }`}
     >
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-500">
             {label}
           </p>
 
-          <p className="mt-1 font-bold text-white">
-            {color === "w" ? "⚪" : "⚫"}{" "}
-            {username}
-          </p>
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span
+              className={`h-2.5 w-2.5 shrink-0 rounded-full ${
+                active
+                  ? "bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.8)]"
+                  : "bg-slate-600"
+              }`}
+            />
+            <div
+              className="h-4 w-0 shrink-0"
+              aria-hidden="true"
+            />
+            <p className="truncate text-[15px] font-black leading-tight text-white">
+              {username}
+            </p>
+            <span className="shrink-0 text-xs font-bold text-yellow-300">
+              ({rating}) 🏆
+            </span>
+
+            {capturedPieces.length > 0 && (
+              <div className="flex min-w-0 items-center gap-0.5">
+                {capturedPieces.map((piece, index) => (
+                  <span key={`${piece}-${index}`} className="shrink-0">
+                    <ChessPiece piece={piece} size={20} />
+                  </span>
+                ))}
+                {materialAdvantage > 0 && (
+                  <span className="ml-1 shrink-0 text-xs font-black text-yellow-300">
+                    +{materialAdvantage}
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="text-right">
+        <div className="shrink-0 text-right">
           {active && (
-            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-emerald-400">
+            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">
               ● LIVE
             </p>
           )}
-
-          <p
-            className={`font-mono text-3xl font-black tabular-nums sm:text-4xl ${timeColorClass}`}
-          >
+          <p className={`font-mono text-[22px] font-black leading-none tabular-nums sm:text-[26px] ${timeColorClass}`}>
             {formatClockTime(time)}
           </p>
         </div>
       </div>
     </div>
+  );
+}
+
+const capturedPieceValues: Record<string, number> = {
+  "♙": 1,
+  "♟": 1,
+  "♘": 3,
+  "♞": 3,
+  "♗": 3,
+  "♝": 3,
+  "♖": 5,
+  "♜": 5,
+  "♕": 9,
+  "♛": 9,
+};
+
+function getCapturedMaterialValue(pieces: string[]) {
+  return pieces.reduce(
+    (total, piece) =>
+      total + (capturedPieceValues[piece] ?? 0),
+    0,
   );
 }
 
@@ -215,7 +271,56 @@ export default function OnlineGameClient({
     playerColor,
   });
 
+  const whiteCapturedMaterial =
+    getCapturedMaterialValue(whiteCaptured);
+  const blackCapturedMaterial =
+    getCapturedMaterialValue(blackCaptured);
+
+  const whiteMaterialAdvantage = Math.max(
+    whiteCapturedMaterial - blackCapturedMaterial,
+    0,
+  );
+  const blackMaterialAdvantage = Math.max(
+    blackCapturedMaterial - whiteCapturedMaterial,
+    0,
+  );
+
   const router = useRouter();
+
+  const boardAreaRef = useRef<HTMLDivElement | null>(null);
+  const rightGameAreaRef = useRef<HTMLDivElement | null>(null);
+  const [rightGameAreaHeight, setRightGameAreaHeight] = useState<number | null>(null);
+
+  useEffect(() => {
+    const boardArea = boardAreaRef.current;
+    const rightGameArea = rightGameAreaRef.current;
+
+    if (!boardArea || !rightGameArea) {
+      return;
+    }
+
+    const updateRightGameAreaHeight = () => {
+      const boardRect = boardArea.getBoundingClientRect();
+      const rightGameAreaRect = rightGameArea.getBoundingClientRect();
+
+      setRightGameAreaHeight(
+        Math.max(0, boardRect.bottom - rightGameAreaRect.top),
+      );
+    };
+
+    updateRightGameAreaHeight();
+
+    const resizeObserver = new ResizeObserver(updateRightGameAreaHeight);
+    resizeObserver.observe(boardArea);
+    resizeObserver.observe(rightGameArea);
+
+    window.addEventListener("resize", updateRightGameAreaHeight);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener("resize", updateRightGameAreaHeight);
+    };
+  }, []);
 
   const currentPlayer =
     playerColor === "w"
@@ -560,11 +665,6 @@ export default function OnlineGameClient({
           ? "½-½"
           : undefined;
 
-  const turnLabel = isGameOver
-    ? "Game finished"
-    : displayGame.turn() === "w"
-      ? "White to move"
-      : "Black to move";
 
   return (
     <>
@@ -707,76 +807,32 @@ export default function OnlineGameClient({
         </div>
       )}
 
-      <div className="mt-5 rounded-2xl border border-slate-700/70 bg-slate-950/60 p-5">
-        <GameInfoRow
-          label="You are playing"
-          value={currentUserColor}
-          highlight
-        />
-
-        <GameInfoRow
-          label="Time Control"
-          value={timeControlLabel}
-        />
-
-        <GameInfoRow
-          label="Category"
-          value={category}
-        />
-
-        <GameInfoRow
-          label="Mode"
-          value={rated ? "Rated" : "Casual"}
-        />
-
-        <GameInfoRow
-          label="Status"
-          value={liveStatus.replaceAll("_", " ")}
-        />
-
-        <GameInfoRow
-          label="Game ID"
-          value={gameId}
-        />
-      </div>
-
-      <section className="mt-8">
-        <div className="mx-auto grid w-full max-w-[940px] items-start gap-5 lg:grid-cols-[minmax(0,620px)_288px]">
-          <div className="w-full min-w-0">
+      <section className="mt-2">
+        <div className="mx-auto grid w-full max-w-[min(96vw,1500px)] items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,34vw)] xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
+          <div className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(100dvh-118px))]">
           <PlayerClock
             username={opponent.username}
+            rating={opponent.rating}
             color={opponentColor}
             time={opponentTime}
             active={isOpponentClockActive}
             label="Opponent"
+            capturedPieces={
+              opponentColor === "w"
+                ? whiteCaptured
+                : blackCaptured
+            }
+            materialAdvantage={
+              opponentColor === "w"
+                ? whiteMaterialAdvantage
+                : blackMaterialAdvantage
+            }
           />
 
-          <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-700 bg-slate-900 px-4 py-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                Opponent
-              </p>
-
-              <p className="mt-1 font-bold text-white">
-                {opponentColor === "w"
-                  ? "⚪"
-                  : "⚫"}{" "}
-                {opponent.username}
-              </p>
-            </div>
-
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-widest text-slate-500">
-                Game
-              </p>
-
-              <p className="mt-1 text-sm font-semibold text-slate-300">
-                {gameId.slice(0, 12)}...
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-3 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 p-2 shadow-2xl shadow-black/30">
+          <div
+            ref={boardAreaRef}
+            className="mt-1.5 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 p-1.5 shadow-2xl shadow-black/30"
+          >
             <Chessboard
               position={displayGame.fen()}
               onPieceDrop={onDrop}
@@ -792,205 +848,43 @@ export default function OnlineGameClient({
             />
           </div>
 
-          <PlayerClock
-            username={currentPlayer.username}
-            color={playerColor}
+          <div className="mt-1.5">
+            <PlayerClock
+              username={currentPlayer.username}
+              rating={currentPlayer.rating}
+              color={playerColor}
             time={currentPlayerTime}
             active={isCurrentPlayerClockActive}
-            label="You"
-          />
-
-          <div className="mt-3 grid grid-cols-3 items-center rounded-xl border border-slate-700 bg-slate-900 px-4 py-3">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-widest text-slate-500">
-                You
-              </p>
-
-              <p className="mt-1 font-bold text-white">
-                {playerColor === "w"
-                  ? "⚪"
-                  : "⚫"}{" "}
-                {currentPlayer.username}
-              </p>
-            </div>
-
-            <div className="text-center">
-              <p className="text-xs uppercase tracking-widest text-slate-500">
-                {turnLabel}
-              </p>
-
-              <p
-                className={`mt-1 font-extrabold ${
-                  isPlayerTurn
-                    ? "text-emerald-400"
-                    : "text-yellow-400"
-                }`}
-              >
-                {isGameOver
-                  ? finishedResultLabel
-                  : isPlayerTurn
-                    ? "Your turn"
-                    : "Opponent's turn"}
-              </p>
-            </div>
-
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-widest text-slate-500">
-                Moves
-              </p>
-
-              <p className="mt-1 font-bold text-white">
-                {history.length}
-              </p>
-            </div>
+              label="You"
+              capturedPieces={
+                playerColor === "w"
+                  ? whiteCaptured
+                  : blackCaptured
+              }
+              materialAdvantage={
+                playerColor === "w"
+                  ? whiteMaterialAdvantage
+                  : blackMaterialAdvantage
+              }
+            />
           </div>
 
-          {!isGameOver && (
-            <div className="mt-4">
-              <p className="mb-2 text-center text-xs font-bold uppercase tracking-[0.25em] text-slate-500">
-                Game Actions
-              </p>
-
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  type="button"
-                  onClick={() => setIsDrawDialogOpen(true)}
-                  title={
-                    !isPlayerTurn
-                      ? "You can offer a draw on your turn"
-                      : undefined
-                  }
-                  disabled={
-                    !isPlayerTurn ||
-                    hasOutgoingDrawOffer ||
-                    hasIncomingDrawOffer ||
-                    isProcessingDraw ||
-                    isResigning
-                  }
-                  className="rounded-xl border border-sky-400/40 bg-sky-500/10 px-4 py-3 font-bold text-sky-200 transition hover:border-sky-400/70 hover:bg-sky-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {hasOutgoingDrawOffer
-                    ? "🤝 Offer Sent"
-                    : hasIncomingDrawOffer
-                      ? "🤝 Draw Offered"
-                    : "🤝 Offer Draw"}
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setIsResignDialogOpen(true)}
-                  disabled={
-                    isResigning ||
-                    isProcessingDraw
-                  }
-                  className="rounded-xl border border-red-400/40 bg-red-500/10 px-4 py-3 font-bold text-red-300 transition hover:border-red-400/70 hover:bg-red-500/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  🏳️ Resign
-                </button>
-              </div>
-
-              {hasOutgoingDrawOffer && (
-                <div className="mt-3 rounded-xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 text-center text-sm font-semibold text-sky-200">
-                  Draw offer sent — waiting for your opponent.
-                </div>
-              )}
-
-              {isIncomingDrawOfferDismissed && (
-                <div className="mt-3 rounded-xl border border-sky-400/30 bg-sky-400/10 p-3">
-                  <p className="text-center text-sm font-semibold text-sky-100">
-                    {opponent.username} offered a draw.
-                  </p>
-
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleDrawDecline();
-                      }}
-                      disabled={isProcessingDraw}
-                      className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      Decline
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        void handleDrawAccept();
-                      }}
-                      disabled={isProcessingDraw}
-                      className="rounded-lg bg-sky-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                      Accept Draw
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {isGameOver && (
-            <div className="mt-4">
-              <p className="mb-2 text-center text-xs font-bold uppercase tracking-[0.25em] text-slate-500">
-                Post-Game Actions
-              </p>
-
-              <button
-                type="button"
-                onClick={() => setIsRematchDialogOpen(true)}
-                disabled={
-                  hasOutgoingRematchOffer ||
-                  isProcessingRematch ||
-                  rematchGameId !== null
-                }
-                className="w-full rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-5 py-3 font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {rematchGameId
-                  ? "♟️ Opening Rematch..."
-                  : hasOutgoingRematchOffer
-                    ? "♟️ Rematch Offer Sent"
-                    : hasIncomingRematchOffer
-                      ? "♟️ Rematch Offered"
-                      : "♟️ Rematch"}
-              </button>
-
-              {hasOutgoingRematchOffer && (
-                <div className="mt-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3 text-center text-sm font-semibold text-yellow-200">
-                  Rematch offer sent — waiting for your opponent.
-                </div>
-              )}
-
-              <button
-                type="button"
-                onClick={() => {
-                  router.push("/dashboard");
-                  router.refresh();
-                }}
-                className="mt-3 w-full rounded-xl border border-slate-600 bg-slate-800 px-5 py-3 font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
-              >
-                🏠 Back to Dashboard
-              </button>
-            </div>
-          )}
-
-          <button
-            type="button"
-            onClick={handleFlipBoard}
-            className="mt-3 w-full rounded-xl border border-slate-700 bg-slate-800 px-5 py-3 font-bold text-slate-200 transition hover:border-slate-600 hover:bg-slate-700"
-          >
-            🔄 Flip Board
-          </button>
-
-          <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-center text-sm font-semibold text-emerald-200">
-            ● Online game synchronized
-          </div>
           </div>
 
-          <aside className="flex w-full min-w-0 flex-col items-center gap-4 lg:sticky lg:top-6 lg:items-stretch">
-            <div className="w-full">
+          <aside className="flex w-full min-w-0 flex-col items-center gap-3 lg:items-stretch lg:pr-1">
+            <div className="w-full lg:mb-[-1px]">
               <SoundControl />
             </div>
 
+            <div
+              ref={rightGameAreaRef}
+              className="flex w-full min-h-0 flex-col gap-3"
+              style={
+                rightGameAreaHeight !== null
+                  ? { height: `${rightGameAreaHeight}px` }
+                  : undefined
+              }
+            >
             {opening && (
               <div className="w-full rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-yellow-400">
@@ -1003,11 +897,6 @@ export default function OnlineGameClient({
               </div>
             )}
 
-            <CapturedPieces
-              whiteCaptured={whiteCaptured}
-              blackCaptured={blackCaptured}
-            />
-
             <MoveHistory
               history={history}
               currentMoveIndex={currentMoveIndex}
@@ -1018,6 +907,158 @@ export default function OnlineGameClient({
               onNextMove={goToNextMove}
               onLastMove={goToLastMove}
             />
+
+            {!isGameOver && (
+              <div className="w-full rounded-2xl border border-slate-700 bg-slate-900/90 p-3 shadow-xl shadow-black/20">
+                <div className="grid grid-cols-4 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsDrawDialogOpen(true)}
+                    title={
+                      !isPlayerTurn
+                        ? "You can offer a draw on your turn"
+                        : undefined
+                    }
+                    disabled={
+                      !isPlayerTurn ||
+                      hasOutgoingDrawOffer ||
+                      hasIncomingDrawOffer ||
+                      isProcessingDraw ||
+                      isResigning
+                    }
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {hasOutgoingDrawOffer
+                      ? "🤝 Offer Sent"
+                      : hasIncomingDrawOffer
+                        ? "🤝 Draw Offered"
+                        : "½ Offer Draw"}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsResignDialogOpen(true)}
+                    disabled={
+                      isResigning ||
+                      isProcessingDraw
+                    }
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-red-400/60 hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    🏳️ Resign
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleFlipBoard}
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-yellow-400/50 hover:bg-slate-700 active:scale-[0.98]"
+                  >
+                    🔄 Flip Board
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      router.push("/dashboard");
+                      router.refresh();
+                    }}
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-slate-400 hover:bg-slate-700 active:scale-[0.98]"
+                  >
+                    🏠 Dashboard
+                  </button>
+                </div>
+
+                {hasOutgoingDrawOffer && (
+                  <div className="mt-3 rounded-xl border border-sky-400/30 bg-sky-400/10 px-3 py-2 text-center text-xs font-semibold text-sky-200">
+                    Draw offer sent — waiting for your opponent.
+                  </div>
+                )}
+
+                {isIncomingDrawOfferDismissed && (
+                  <div className="mt-3 rounded-xl border border-sky-400/30 bg-sky-400/10 p-3">
+                    <p className="text-center text-sm font-semibold text-sky-100">
+                      {opponent.username} offered a draw.
+                    </p>
+
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleDrawDecline();
+                        }}
+                        disabled={isProcessingDraw}
+                        className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        Decline
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleDrawAccept();
+                        }}
+                        disabled={isProcessingDraw}
+                        className="rounded-lg bg-sky-500 px-3 py-2 text-sm font-bold text-white transition hover:bg-sky-400 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        Accept Draw
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {isGameOver && (
+              <div className="w-full rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-3">
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-yellow-400">
+                  Post-Game Actions
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => setIsRematchDialogOpen(true)}
+                  disabled={
+                    hasOutgoingRematchOffer ||
+                    isProcessingRematch ||
+                    rematchGameId !== null
+                  }
+                  className="w-full rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2.5 text-sm font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {rematchGameId
+                    ? "♟️ Opening Rematch..."
+                    : hasOutgoingRematchOffer
+                      ? "♟️ Rematch Offer Sent"
+                      : hasIncomingRematchOffer
+                        ? "♟️ Rematch Offered"
+                        : "♟️ Rematch"}
+                </button>
+
+                {hasOutgoingRematchOffer && (
+                  <div className="mt-3 rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-3 py-2 text-center text-xs font-semibold text-yellow-200">
+                    Rematch offer sent — waiting for your opponent.
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push("/dashboard");
+                    router.refresh();
+                  }}
+                  className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
+                >
+                  🏠 Back to Dashboard
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleFlipBoard}
+                  className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
+                >
+                  🔄 Flip Board
+                </button>
+              </div>
+            )}
+            </div>
           </aside>
         </div>
       </section>

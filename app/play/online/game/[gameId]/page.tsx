@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -55,6 +54,9 @@ export default async function OnlineGamePage({
         select: {
           id: true,
           username: true,
+          bulletRating: true,
+          blitzRating: true,
+          rapidRating: true,
         },
       },
 
@@ -62,6 +64,9 @@ export default async function OnlineGamePage({
         select: {
           id: true,
           username: true,
+          bulletRating: true,
+          blitzRating: true,
+          rapidRating: true,
         },
       },
     },
@@ -92,93 +97,48 @@ export default async function OnlineGamePage({
     return `${minutes}+${game.incrementSeconds}`;
   };
 
+  const getPlayerRating = (player: {
+    bulletRating: number;
+    blitzRating: number;
+    rapidRating: number;
+  }) => {
+    switch (game.timeControl) {
+      case "BULLET":
+        return Math.round(player.bulletRating);
+      case "BLITZ":
+        return Math.round(player.blitzRating);
+      case "RAPID":
+        return Math.round(player.rapidRating);
+    }
+  };
+
+  const whitePlayer = {
+    id: game.whitePlayer.id,
+    username: game.whitePlayer.username,
+    rating: getPlayerRating(game.whitePlayer),
+  };
+
+  const blackPlayer = {
+    id: game.blackPlayer.id,
+    username: game.blackPlayer.username,
+    rating: getPlayerRating(game.blackPlayer),
+  };
+
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#172554_0%,_#0f172a_45%,_#020617_100%)] px-4 py-10 text-slate-50 sm:px-6">
-      <div className="mx-auto w-full max-w-[1100px]">
-        <header className="mb-8 text-center">
-          <div className="mb-2 text-5xl">
-            ⚔️
-          </div>
-
-          <h1 className="text-4xl font-black text-yellow-400 sm:text-5xl">
-            Online Game
-          </h1>
-
-          <p className="mt-3 text-slate-400">
-            Your Chess Arena match is ready.
-          </p>
-        </header>
-
-        <section className="rounded-[22px] border border-blue-400/30 bg-gradient-to-br from-blue-900/30 to-slate-950/90 p-5 shadow-2xl shadow-black/30 sm:p-7">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <PlayerCard
-              label="⚪ WHITE"
-              username={game.whitePlayer.username}
-              active={playerColor === "w"}
-            />
-
-            <PlayerCard
-              label="⚫ BLACK"
-              username={game.blackPlayer.username}
-              active={playerColor === "b"}
-            />
-          </div>
-
-          <OnlineGameClient
-            gameId={game.id}
-            playerColor={playerColor}
-            timeControlLabel={formatTimeControl()}
-            category={game.timeControl}
-            rated={game.rated}
-            initialStatus={game.status}
-            whitePlayer={game.whitePlayer}
-            blackPlayer={game.blackPlayer}
-          />
-        </section>
-
-        <Link
-          href="/play/online"
-          className="mt-5 block rounded-xl border border-slate-700 bg-slate-800/90 px-5 py-3.5 text-center font-bold text-slate-200 transition hover:bg-slate-700"
-        >
-          ← Back to Online Arena
-        </Link>
+    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#172554_0%,_#0f172a_45%,_#020617_100%)] px-3 py-2 text-slate-50 sm:px-4">
+      <div className="mx-auto w-full max-w-[1120px]">
+        <OnlineGameClient
+          gameId={game.id}
+          playerColor={playerColor}
+          timeControlLabel={formatTimeControl()}
+          category={game.timeControl}
+          rated={game.rated}
+          initialStatus={game.status}
+          whitePlayer={whitePlayer}
+          blackPlayer={blackPlayer}
+        />
       </div>
     </main>
   );
-}
 
-type PlayerCardProps = {
-  label: string;
-  username: string;
-  active: boolean;
-};
-
-function PlayerCard({
-  label,
-  username,
-  active,
-}: PlayerCardProps) {
-  return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        active
-          ? "border-yellow-400/50 bg-yellow-400/10"
-          : "border-slate-700 bg-slate-900/60"
-      }`}
-    >
-      <div className="text-xs font-bold tracking-widest text-slate-400">
-        {label}
-      </div>
-
-      <div className="mt-2 text-xl font-black text-white">
-        {username}
-      </div>
-
-      {active && (
-        <div className="mt-2 text-xs font-bold uppercase tracking-wider text-yellow-400">
-          You
-        </div>
-      )}
-    </div>
-  );
 }

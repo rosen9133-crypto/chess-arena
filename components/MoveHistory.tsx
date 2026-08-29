@@ -82,7 +82,7 @@ export function MoveHistory({
   }
 
   return (
-    <div className="w-full rounded-xl border border-slate-700 bg-slate-800 p-4 text-white shadow-lg lg:w-72">
+    <div className="w-full rounded-xl border border-slate-700 bg-slate-800 p-4 text-white shadow-lg lg:min-h-0 lg:flex-1">
       <h2 className="mb-3 text-xl font-bold text-yellow-400">
         📜 Move History
       </h2>
@@ -134,10 +134,14 @@ export function MoveHistory({
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-3">
-          <p className="text-center text-sm text-slate-400">
-            No moves have been played yet.
-          </p>
+        <div className="overflow-hidden rounded-lg border border-slate-700">
+          <button
+            type="button"
+            onClick={onFirstMove}
+            className="w-full bg-slate-900 px-3 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-slate-700"
+          >
+            Starting Position
+          </button>
         </div>
       ) : (
         <div className="overflow-hidden rounded-lg border border-slate-700">
