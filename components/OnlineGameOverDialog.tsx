@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 type OnlineGameResult =
   | "WHITE_WIN"
   | "BLACK_WIN"
@@ -32,6 +34,83 @@ export default function OnlineGameOverDialog({
   ratingError = null,
   onClose,
 }: OnlineGameOverDialogProps) {
+  const [animatedRating, setAnimatedRating] = useState<number | null>(null);
+  const [ratingAnimationComplete, setRatingAnimationComplete] =
+    useState(false);
+
+  const oldRating =
+    rating?.oldRating !== null &&
+    rating?.oldRating !== undefined
+      ? Math.round(rating.oldRating)
+      : null;
+
+  const newRating =
+    rating?.newRating !== null &&
+    rating?.newRating !== undefined
+      ? Math.round(rating.newRating)
+      : null;
+
+  const ratingChange =
+    rating?.ratingChange !== null &&
+    rating?.ratingChange !== undefined
+      ? Math.round(rating.ratingChange)
+      : null;
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !isRated ||
+      oldRating === null ||
+      newRating === null
+    ) {
+      setAnimatedRating(null);
+      setRatingAnimationComplete(false);
+      return;
+    }
+
+    setAnimatedRating(oldRating);
+    setRatingAnimationComplete(false);
+
+    if (oldRating === newRating) {
+      setRatingAnimationComplete(true);
+      return;
+    }
+
+    const duration = 850;
+    const startTime = performance.now();
+    let animationFrameId = 0;
+
+    const animate = (currentTime: number) => {
+      const progress = Math.min(
+        (currentTime - startTime) / duration,
+        1,
+      );
+      const easedProgress =
+        1 - Math.pow(1 - progress, 3);
+
+      setAnimatedRating(
+        Math.round(
+          oldRating +
+            (newRating - oldRating) * easedProgress,
+        ),
+      );
+
+      if (progress < 1) {
+        animationFrameId =
+          requestAnimationFrame(animate);
+      } else {
+        setAnimatedRating(newRating);
+        setRatingAnimationComplete(true);
+      }
+    };
+
+    animationFrameId = requestAnimationFrame(animate);
+
+    return () => {
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, [isOpen, isRated, oldRating, newRating]);
+
   if (!isOpen || !result) {
     return null;
   }
@@ -67,24 +146,6 @@ export default function OnlineGameOverDialog({
     : playerWon
       ? "Victory"
       : "Defeat";
-
-  const oldRating =
-    rating?.oldRating !== null &&
-    rating?.oldRating !== undefined
-      ? Math.round(rating.oldRating)
-      : null;
-
-  const newRating =
-    rating?.newRating !== null &&
-    rating?.newRating !== undefined
-      ? Math.round(rating.newRating)
-      : null;
-
-  const ratingChange =
-    rating?.ratingChange !== null &&
-    rating?.ratingChange !== undefined
-      ? Math.round(rating.ratingChange)
-      : null;
 
   const formattedRatingChange =
     ratingChange !== null
@@ -175,23 +236,24 @@ export default function OnlineGameOverDialog({
 
                       <span className="text-slate-600">→</span>
 
-                      <span className="text-2xl font-black text-white">
-                        {newRating}
+                      <span className="text-2xl font-black text-white tabular-nums">
+                        {animatedRating ?? oldRating}
                       </span>
 
-                      {formattedRatingChange && (
-                        <span
-                          className={`rounded-lg px-2.5 py-1 text-sm font-black ${
-                            ratingChange !== null && ratingChange > 0
-                              ? "bg-emerald-400/15 text-emerald-400"
-                              : ratingChange !== null && ratingChange < 0
-                                ? "bg-rose-400/15 text-rose-400"
-                                : "bg-slate-700 text-slate-300"
-                          }`}
-                        >
-                          {formattedRatingChange}
-                        </span>
-                      )}
+                      {formattedRatingChange &&
+                        ratingAnimationComplete && (
+                          <span
+                            className={`rounded-lg px-2.5 py-1 text-sm font-black ${
+                              ratingChange !== null && ratingChange > 0
+                                ? "bg-emerald-400/15 text-emerald-400"
+                                : ratingChange !== null && ratingChange < 0
+                                  ? "bg-rose-400/15 text-rose-400"
+                                  : "bg-slate-700 text-slate-300"
+                            }`}
+                          >
+                            {formattedRatingChange}
+                          </span>
+                        )}
                     </div>
                   )}
 
