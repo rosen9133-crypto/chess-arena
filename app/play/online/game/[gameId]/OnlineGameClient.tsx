@@ -145,10 +145,7 @@ function PlayerClock({
                   : "bg-slate-600"
               }`}
             />
-            <div
-              className="h-4 w-0 shrink-0"
-              aria-hidden="true"
-            />
+            <div className="h-4 w-0 shrink-0" aria-hidden="true" />
             <p className="truncate text-[15px] font-black leading-tight text-white">
               {username}
             </p>
@@ -332,6 +329,28 @@ export default function OnlineGameClient({
       ? blackPlayer
       : whitePlayer;
 
+  const displayedWhiteRating =
+    ratingResult?.whitePlayer.newRating !== null &&
+    ratingResult?.whitePlayer.newRating !== undefined
+      ? Math.round(ratingResult.whitePlayer.newRating)
+      : whitePlayer.rating;
+
+  const displayedBlackRating =
+    ratingResult?.blackPlayer.newRating !== null &&
+    ratingResult?.blackPlayer.newRating !== undefined
+      ? Math.round(ratingResult.blackPlayer.newRating)
+      : blackPlayer.rating;
+
+  const currentPlayerDisplayedRating =
+    playerColor === "w"
+      ? displayedWhiteRating
+      : displayedBlackRating;
+
+  const opponentDisplayedRating =
+    playerColor === "w"
+      ? displayedBlackRating
+      : displayedWhiteRating;
+
   const currentPlayerRating = ratingResult
     ? playerColor === "w"
       ? ratingResult.whitePlayer
@@ -367,6 +386,24 @@ export default function OnlineGameClient({
 
   const [isGameOverDialogClosed, setIsGameOverDialogClosed] =
     useState(false);
+
+  const [isGameOverDialogReady, setIsGameOverDialogReady] =
+    useState(false);
+
+  useEffect(() => {
+    if (status !== "FINISHED" || !isGameOver) {
+      setIsGameOverDialogReady(false);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setIsGameOverDialogReady(true);
+    }, 1300);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [isGameOver, status]);
 
   const [isResignDialogOpen, setIsResignDialogOpen] =
     useState(false);
@@ -678,6 +715,7 @@ export default function OnlineGameClient({
         isOpen={
           status === "FINISHED" &&
           isGameOver &&
+          isGameOverDialogReady &&
           !isGameOverDialogClosed
         }
         result={authoritativeResult}
@@ -812,7 +850,7 @@ export default function OnlineGameClient({
           <div className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(100dvh-118px))]">
           <PlayerClock
             username={opponent.username}
-            rating={opponent.rating}
+            rating={opponentDisplayedRating}
             color={opponentColor}
             time={opponentTime}
             active={isOpponentClockActive}
@@ -851,7 +889,7 @@ export default function OnlineGameClient({
           <div className="mt-1.5">
             <PlayerClock
               username={currentPlayer.username}
-              rating={currentPlayer.rating}
+              rating={currentPlayerDisplayedRating}
               color={playerColor}
             time={currentPlayerTime}
             active={isCurrentPlayerClockActive}
@@ -900,7 +938,7 @@ export default function OnlineGameClient({
             <MoveHistory
               history={history}
               currentMoveIndex={currentMoveIndex}
-              result={moveHistoryResult}
+              result={undefined}
               onMoveSelect={goToMove}
               onFirstMove={goToFirstMove}
               onPreviousMove={goToPreviousMove}
@@ -1008,10 +1046,23 @@ export default function OnlineGameClient({
             )}
 
             {isGameOver && (
-              <div className="w-full rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-3">
-                <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-yellow-400">
-                  Post-Game Actions
-                </p>
+              <div className="w-full rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-2.5">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.22em] text-yellow-400">
+                    Post-Game Actions
+                  </p>
+
+                  {moveHistoryResult && (
+                    <div className="flex shrink-0 items-center gap-2">
+                      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400">
+                        Result
+                      </span>
+                      <span className="text-sm font-black text-yellow-300">
+                        {moveHistoryResult}
+                      </span>
+                    </div>
+                  )}
+                </div>
 
                 <button
                   type="button"
@@ -1021,7 +1072,7 @@ export default function OnlineGameClient({
                     isProcessingRematch ||
                     rematchGameId !== null
                   }
-                  className="w-full rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2.5 text-sm font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="w-full rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2 text-sm font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {rematchGameId
                     ? "♟️ Opening Rematch..."
@@ -1044,7 +1095,7 @@ export default function OnlineGameClient({
                     router.push("/dashboard");
                     router.refresh();
                   }}
-                  className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
+                  className="mt-1.5 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
                 >
                   🏠 Back to Dashboard
                 </button>
@@ -1052,7 +1103,7 @@ export default function OnlineGameClient({
                 <button
                   type="button"
                   onClick={handleFlipBoard}
-                  className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2.5 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
+                  className="mt-1.5 w-full rounded-xl border border-slate-600 bg-slate-800 px-4 py-2 text-sm font-bold text-slate-200 transition hover:border-slate-500 hover:bg-slate-700 active:scale-[0.98]"
                 >
                   🔄 Flip Board
                 </button>

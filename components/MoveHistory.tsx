@@ -82,19 +82,19 @@ export function MoveHistory({
   }
 
   return (
-    <div className="w-full rounded-xl border border-slate-700 bg-slate-800 p-4 text-white shadow-lg lg:min-h-0 lg:flex-1">
-      <h2 className="mb-3 text-xl font-bold text-yellow-400">
+    <div className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-800 p-3 text-white shadow-lg lg:min-h-0 lg:flex-1">
+      <h2 className="mb-2 text-lg font-bold text-yellow-400">
         📜 Move History
       </h2>
 
-      <div className="mb-3 grid grid-cols-4 gap-2">
+      <div className="mb-2 grid grid-cols-4 gap-2">
         <button
           type="button"
           onClick={onFirstMove}
           disabled={isAtFirstMove}
           aria-label="Go to starting position"
           title="Starting position"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
         >
           ⏮️
         </button>
@@ -105,7 +105,7 @@ export function MoveHistory({
           disabled={isAtFirstMove}
           aria-label="Go to previous move"
           title="Previous move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
         >
           ◀️
         </button>
@@ -116,7 +116,7 @@ export function MoveHistory({
           disabled={isAtLastMove}
           aria-label="Go to next move"
           title="Next move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
         >
           ▶️
         </button>
@@ -127,7 +127,7 @@ export function MoveHistory({
           disabled={isAtLastMove}
           aria-label="Go to latest move"
           title="Latest move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1.5 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
         >
           ⏭️
         </button>
@@ -144,8 +144,8 @@ export function MoveHistory({
           </button>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-lg border border-slate-700">
-          <div className="grid grid-cols-[38px_1fr_1fr] bg-slate-900 px-2 py-1.5 text-xs font-bold text-yellow-400">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-700">
+          <div className="grid shrink-0 grid-cols-[38px_1fr_1fr] bg-slate-900 px-2 py-1 text-xs font-bold text-yellow-400">
             <div>#</div>
             <div>⚪ White</div>
             <div>⚫ Black</div>
@@ -153,12 +153,12 @@ export function MoveHistory({
 
           <div
             ref={scrollContainerRef}
-            className="max-h-[150px] overflow-y-auto scroll-smooth"
+            className="min-h-0 flex-1 overflow-y-auto scroll-smooth"
           >
             {rows.map((row) => (
               <div
                 key={row.move}
-                className="grid grid-cols-[38px_1fr_1fr] border-t border-slate-700 px-2 py-1"
+                className="grid grid-cols-[38px_1fr_1fr] border-t border-slate-700 px-2 py-0.5"
               >
                 <div className="flex items-center text-sm font-bold text-yellow-400">
                   {row.move}.
@@ -173,7 +173,7 @@ export function MoveHistory({
                           row.whiteIndex,
                         )
                       }
-                      className={`w-full rounded-md px-2 py-0.5 text-left text-sm font-medium transition active:scale-[0.98] ${getMoveButtonClass(
+                      className={`w-full rounded-md px-2 py-0 text-left text-sm font-medium transition active:scale-[0.98] ${getMoveButtonClass(
                         row.whiteIndex,
                       )}`}
                     >
@@ -191,7 +191,7 @@ export function MoveHistory({
                           row.blackIndex,
                         )
                       }
-                      className={`w-full rounded-md px-2 py-0.5 text-left text-sm font-medium transition active:scale-[0.98] ${getMoveButtonClass(
+                      className={`w-full rounded-md px-2 py-0 text-left text-sm font-medium transition active:scale-[0.98] ${getMoveButtonClass(
                         row.blackIndex,
                       )}`}
                     >
@@ -217,7 +217,7 @@ export function MoveHistory({
         </div>
       )}
 
-      <div className="mt-2 flex items-center justify-between text-xs text-slate-400">
+      <div className="mt-1 flex shrink-0 items-center justify-between text-xs text-slate-400">
         <span>
           Viewing: {currentMoveIndex}/
           {history.length}

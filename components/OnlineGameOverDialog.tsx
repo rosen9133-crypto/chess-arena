@@ -51,9 +51,8 @@ export default function OnlineGameOverDialog({
       : null;
 
   const ratingChange =
-    rating?.ratingChange !== null &&
-    rating?.ratingChange !== undefined
-      ? Math.round(rating.ratingChange)
+    oldRating !== null && newRating !== null
+      ? newRating - oldRating
       : null;
 
   useEffect(() => {
