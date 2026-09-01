@@ -137,48 +137,6 @@ type StockfishCandidate = {
   score: number;
 };
 
-function chooseWeakLegalMove(
-  game: Chess,
-  difficultyId: StockfishDifficultyId,
-) {
-  const legalMoves = game.moves({ verbose: true });
-
-  if (legalMoves.length === 0) return null;
-
-  const pick = (moves: typeof legalMoves) =>
-    moves[Math.floor(Math.random() * moves.length)];
-
-  const quietMoves = legalMoves.filter(
-    (move) =>
-      !move.captured &&
-      !move.promotion &&
-      !move.san.includes("+") &&
-      !move.san.includes("#"),
-  );
-
-  if (difficultyId === "beginner") {
-    const roll = Math.random();
-
-    if (roll < 0.75 && quietMoves.length > 0) {
-      return pick(quietMoves);
-    }
-
-    return pick(legalMoves);
-  }
-
-  const roll = Math.random();
-
-  if (roll < 0.55 && quietMoves.length > 0) {
-    return pick(quietMoves);
-  }
-
-  if (roll < 0.75) {
-    return pick(legalMoves);
-  }
-
-  return null;
-}
-
 function parseStockfishScore(message: string) {
   const cpMatch = message.match(/\bscore cp (-?\d+)/);
 
@@ -633,21 +591,12 @@ const [blackTime, setBlackTime] =
       `setoption name MultiPV value ${selectedStockfishDifficulty.multiPv}`,
     );
 
-    if (selectedStockfishDifficulty.uciElo !== null) {
-      engine.send(
-        "setoption name UCI_LimitStrength value true",
-      );
-      engine.send(
-        `setoption name UCI_Elo value ${selectedStockfishDifficulty.uciElo}`,
-      );
-    } else {
-      engine.send(
-        "setoption name UCI_LimitStrength value false",
-      );
-      engine.send(
-        `setoption name Skill Level value ${selectedStockfishDifficulty.skillLevel}`,
-      );
-    }
+    engine.send(
+      "setoption name UCI_LimitStrength value true",
+    );
+    engine.send(
+      `setoption name UCI_Elo value ${selectedStockfishDifficulty.uciElo}`,
+    );
 
     engine.send("isready");
 
@@ -957,7 +906,6 @@ const [blackTime, setBlackTime] =
   }, [
     selectedStockfishDifficulty.elo,
     selectedStockfishDifficulty.uciElo,
-    selectedStockfishDifficulty.skillLevel,
     selectedStockfishDifficulty.multiPv,
     selectedStockfishDifficulty.humanizedMistakes,
     selectedStockfishDifficulty.maxCentipawnLoss,
@@ -987,134 +935,6 @@ const [blackTime, setBlackTime] =
       return;
     }
 
-    if (
-      selectedStockfishDifficultyId === "beginner" ||
-      selectedStockfishDifficultyId === "easy"
-    ) {
-      const weakMove = chooseWeakLegalMove(
-        game,
-        selectedStockfishDifficultyId,
-      );
-
-      const weakMoveChance =
-        selectedStockfishDifficultyId === "beginner"
-          ? 0.9
-          : 0.6;
-
-      if (
-        weakMove &&
-        Math.random() < weakMoveChance
-      ) {
-        const { min, max } =
-          selectedStockfishDifficulty.thinkTimeMs;
-
-        const delayMs = Math.round(
-          min + Math.random() * (max - min),
-        );
-
-        stockfishThinkingRef.current = true;
-
-        const timeoutId = window.setTimeout(() => {
-          const currentGame = latestGameRef.current;
-          const currentEngineColor =
-            playerColorRef.current === "w"
-              ? "b"
-              : "w";
-
-          if (
-            currentGame.turn() !== currentEngineColor ||
-            currentGame.isGameOver()
-          ) {
-            stockfishThinkingRef.current = false;
-            return;
-          }
-
-          const gameCopy =
-            createGameWithHistory(currentGame);
-
-          try {
-            const result = gameCopy.move({
-              from: weakMove.from,
-              to: weakMove.to,
-              ...(weakMove.promotion
-                ? {
-                    promotion:
-                      weakMove.promotion as PromotionPiece,
-                  }
-                : {}),
-            });
-
-            stopClockTick();
-
-            latestGameRef.current = gameCopy;
-            setGame(gameCopy);
-            setCurrentMoveIndex(
-              gameCopy.history().length,
-            );
-            setIsGameOverDialogClosed(false);
-
-            if (
-              !isUntimedGame &&
-              selectedTimeControl.incrementSeconds > 0
-            ) {
-              if (currentEngineColor === "w") {
-                setWhiteTime((currentTime) =>
-                  currentTime +
-                  selectedTimeControl.incrementSeconds
-                );
-              } else {
-                setBlackTime((currentTime) =>
-                  currentTime +
-                  selectedTimeControl.incrementSeconds
-                );
-              }
-            }
-
-            if (
-              gameCopy.isGameOver() ||
-              isUntimedGame
-            ) {
-              setActiveClock(null);
-            } else {
-              lastClockUpdateRef.current = Date.now();
-              setActiveClock(gameCopy.turn());
-            }
-
-            if (gameCopy.isCheckmate()) {
-              playSound("win");
-            } else if (gameCopy.isGameOver()) {
-              playSound("draw");
-            } else if (gameCopy.isCheck()) {
-              playSound("check");
-            } else if (result.promotion) {
-              playSound("promote");
-            } else if (
-              result.flags.includes("k") ||
-              result.flags.includes("q")
-            ) {
-              playSound("castle");
-            } else if (result.captured) {
-              playSound("capture");
-            } else {
-              playSound("move");
-            }
-          } catch (error) {
-            console.error(
-              "Weak computer move was invalid:",
-              weakMove,
-              error,
-            );
-          } finally {
-            stockfishThinkingRef.current = false;
-          }
-        }, delayMs);
-
-        return () => {
-          window.clearTimeout(timeoutId);
-          stockfishThinkingRef.current = false;
-        };
-      }
-    }
 
     stockfishThinkingRef.current = true;
     stockfishCandidatesRef.current.clear();
@@ -1143,7 +963,6 @@ const [blackTime, setBlackTime] =
     selectedStockfishDifficultyId,
     selectedStockfishDifficulty.elo,
     selectedStockfishDifficulty.uciElo,
-    selectedStockfishDifficulty.skillLevel,
     selectedStockfishDifficulty.thinkTimeMs,
     selectedStockfishDifficulty.humanizedMistakes,
     selectedStockfishDifficulty.maxCentipawnLoss,
