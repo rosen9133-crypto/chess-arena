@@ -27,7 +27,7 @@ export default function OnlineResignDialog({
 
           <p className="mt-3 leading-6 text-slate-300">
             Your opponent will be declared the winner.
-            This action cannot be undone.
+            Are you sure you want to resign?
           </p>
         </div>
 

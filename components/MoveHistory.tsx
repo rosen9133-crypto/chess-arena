@@ -82,7 +82,7 @@ export function MoveHistory({
   }
 
   return (
-    <div className="flex w-full flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-800 p-3 text-white shadow-lg lg:min-h-0 lg:flex-1">
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-800 p-3 text-white shadow-lg">
       <h2 className="mb-2 text-lg font-bold text-yellow-400">
         📜 Move History
       </h2>
@@ -134,11 +134,11 @@ export function MoveHistory({
       </div>
 
       {rows.length === 0 ? (
-        <div className="overflow-hidden rounded-lg border border-slate-700">
+        <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-700">
           <button
             type="button"
             onClick={onFirstMove}
-            className="w-full bg-slate-900 px-3 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-slate-700"
+            className="flex w-full flex-1 items-start bg-slate-900 px-3 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-slate-700"
           >
             Starting Position
           </button>
@@ -202,18 +202,19 @@ export function MoveHistory({
               </div>
             ))}
 
-            {result && (
-              <div className="border-t border-slate-700 bg-slate-900 px-3 py-2 text-center">
-                <p className="text-[10px] uppercase tracking-widest text-slate-400">
-                  Result
-                </p>
-
-                <p className="mt-1 text-xl font-extrabold text-yellow-400">
-                  {result}
-                </p>
-              </div>
-            )}
           </div>
+
+          {result && (
+            <div className="shrink-0 border-t border-slate-700 bg-slate-900 px-3 py-2 text-center">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">
+                Result
+              </p>
+
+              <p className="mt-1 text-xl font-extrabold text-yellow-400">
+                {result}
+              </p>
+            </div>
+          )}
         </div>
       )}
 

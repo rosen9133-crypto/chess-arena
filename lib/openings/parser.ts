@@ -5,6 +5,7 @@ import type {
 
 function normalizePgnMoves(pgn: string): string[] {
   return pgn
+    .replace(/\[[^\]]*\]/g, " ")
     .replace(/\{[^}]*\}/g, " ")
     .replace(/\([^)]*\)/g, " ")
     .replace(/\$\d+/g, " ")

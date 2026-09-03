@@ -1091,10 +1091,9 @@ const [blackTime, setBlackTime] =
     }
 
     stopClockTick();
-    playSound("clock-timeout");
 
     if (timedOutColor === playerColorRef.current) {
-      playSound("lose");
+      playSound("defeat");
     } else {
       playSound("win");
     }
@@ -1299,18 +1298,33 @@ const [blackTime, setBlackTime] =
 
   function handlePromotionSelect(
     piece: PromotionPiece,
+    sourceSquare?: string,
+    targetSquare?: string,
   ) {
-    if (!pendingPromotion) {
-      return;
+    const promotionMove =
+      sourceSquare && targetSquare
+        ? {
+            from: sourceSquare,
+            to: targetSquare,
+          }
+        : pendingPromotion;
+
+    if (!promotionMove) {
+      return false;
     }
 
-    makeMove({
-      from: pendingPromotion.from,
-      to: pendingPromotion.to,
+    const result = makeMove({
+      from: promotionMove.from,
+      to: promotionMove.to,
       promotion: piece,
     });
 
+    if (!result) {
+      return false;
+    }
+
     setPendingPromotion(null);
+    return true;
   }
 
   const setPlayerColorChoice: Dispatch<
@@ -1457,7 +1471,7 @@ const [blackTime, setBlackTime] =
     setPendingPromotion(null);
     setResignedColor(playerColor);
     setIsGameOverDialogClosed(false);
-    playSound("lose");
+    playSound("defeat");
   }
 
   function handleRematch() {
