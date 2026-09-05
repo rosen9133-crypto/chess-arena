@@ -82,7 +82,7 @@ export default function SoundControl() {
         : "🔊";
 
   return (
-    <div className="flex items-center gap-3 px-1 py-1">
+    <div className="flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-900/55 px-3 py-2 shadow-sm">
       <button
         type="button"
         onClick={handleToggleMute}

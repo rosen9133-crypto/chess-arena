@@ -31,6 +31,12 @@ import type {
 
 type ChessColor = "w" | "b";
 
+type Premove = {
+  from: string;
+  to: string;
+  promotion?: PromotionPiece;
+};
+
 type OnlineGameStatus = string;
 type OnlineGameResult = string | null;
 type OnlineDrawOfferBy = "WHITE" | "BLACK" | null;
@@ -136,6 +142,9 @@ export function useOnlineChessGame({
   const [pendingPromotion, setPendingPromotion] =
     useState<PendingPromotion | null>(null);
 
+  const [premove, setPremove] =
+    useState<Premove | null>(null);
+
   const [boardOrientation, setBoardOrientation] =
     useState<BoardOrientation>(
       playerColor === "w" ? "white" : "black",
@@ -214,6 +223,10 @@ export function useOnlineChessGame({
   const currentMoveIndexRef =
     useRef(currentMoveIndex);
   const isSendingMoveRef =
+    useRef(false);
+  const premoveRef =
+    useRef<Premove | null>(null);
+  const premoveExecutionRequestedRef =
     useRef(false);
   const isResigningRef =
     useRef(false);
@@ -316,6 +329,54 @@ export function useOnlineChessGame({
     ...getCheckSquareStyles(displayGame),
   };
 
+  const clearPremove = useCallback(() => {
+    premoveRef.current = null;
+    premoveExecutionRequestedRef.current = false;
+    setPremove(null);
+  }, []);
+
+  const queuePremove = useCallback(
+    ({
+      from,
+      to,
+      promotion,
+    }: Premove) => {
+      if (
+        isResigningRef.current ||
+        isProcessingDrawRef.current ||
+        isGameOver ||
+        !isViewingLatestMove ||
+        gameRef.current.turn() === playerColor
+      ) {
+        return false;
+      }
+
+      const piece = gameRef.current.get(from as Square);
+
+      if (!piece || piece.color !== playerColor) {
+        return false;
+      }
+
+      const nextPremove: Premove = {
+        from,
+        to,
+        ...(promotion ? { promotion } : {}),
+      };
+
+      premoveRef.current = nextPremove;
+      premoveExecutionRequestedRef.current = false;
+      setPremove(nextPremove);
+      setPendingPromotion(null);
+
+      return true;
+    },
+    [
+      isGameOver,
+      isViewingLatestMove,
+      playerColor,
+    ],
+  );
+
   const applyServerGame = useCallback(
     (
       serverFen: string,
@@ -401,8 +462,16 @@ export function useOnlineChessGame({
 
       setPendingPromotion(null);
       setSyncError(null);
+
+      if (
+        premoveRef.current &&
+        serverGame.turn() === playerColor
+      ) {
+        premoveExecutionRequestedRef.current = true;
+        setPremove({ ...premoveRef.current });
+      }
     },
-    [],
+    [playerColor],
   );
 
   useEffect(() => {
@@ -962,6 +1031,56 @@ export function useOnlineChessGame({
     }
   }
 
+  useEffect(() => {
+    if (
+      !premove ||
+      !premoveExecutionRequestedRef.current ||
+      isGameOver ||
+      !isViewingLatestMove ||
+      isSendingMoveRef.current ||
+      gameRef.current.turn() !== playerColor
+    ) {
+      return;
+    }
+
+    premoveExecutionRequestedRef.current = false;
+
+    const queuedPremove = premove;
+    const validationGame = createChessFromServerState(
+      gameRef.current.fen(),
+      gameRef.current.pgn(),
+    );
+
+    try {
+      validationGame.move({
+        from: queuedPremove.from,
+        to: queuedPremove.to,
+        ...(queuedPremove.promotion
+          ? { promotion: queuedPremove.promotion }
+          : {}),
+      });
+    } catch {
+      clearPremove();
+      return;
+    }
+
+    clearPremove();
+
+    void sendMove({
+      from: queuedPremove.from,
+      to: queuedPremove.to,
+      ...(queuedPremove.promotion
+        ? { promotion: queuedPremove.promotion }
+        : {}),
+    });
+  }, [
+    clearPremove,
+    isGameOver,
+    isViewingLatestMove,
+    playerColor,
+    premove,
+  ]);
+
   async function resignGame() {
     if (
       isResigningRef.current ||
@@ -972,6 +1091,7 @@ export function useOnlineChessGame({
       return false;
     }
 
+    clearPremove();
     isResigningRef.current = true;
     setIsResigning(true);
     setSyncError(null);
@@ -1344,6 +1464,7 @@ export function useOnlineChessGame({
   function onDrop(
     sourceSquare: string,
     targetSquare: string,
+    promotion?: PromotionPiece,
   ) {
     if (
       isSendingMoveRef.current ||
@@ -1376,6 +1497,16 @@ export function useOnlineChessGame({
         targetSquare,
       )
     ) {
+      if (promotion) {
+        void sendMove({
+          from: sourceSquare,
+          to: targetSquare,
+          promotion,
+        });
+
+        return true;
+      }
+
       setPendingPromotion({
         from: sourceSquare,
         to: targetSquare,
@@ -1428,6 +1559,7 @@ export function useOnlineChessGame({
     );
 
     setPendingPromotion(null);
+    clearPremove();
 
     currentMoveIndexRef.current =
       safeIndex;
@@ -1443,6 +1575,7 @@ export function useOnlineChessGame({
 
   function goToPreviousMove() {
     setPendingPromotion(null);
+    clearPremove();
 
     setCurrentMoveIndex(
       (currentIndex) => {
@@ -1461,6 +1594,7 @@ export function useOnlineChessGame({
 
   function goToNextMove() {
     setPendingPromotion(null);
+    clearPremove();
 
     setCurrentMoveIndex(
       (currentIndex) => {
@@ -1481,8 +1615,16 @@ export function useOnlineChessGame({
     goToMove(history.length);
   }
 
+  useEffect(() => {
+    if (isGameOver && premoveRef.current) {
+      clearPremove();
+    }
+  }, [clearPremove, isGameOver]);
+
   const shouldShowPromotionDialog =
     pendingPromotion !== null &&
+    premove === null &&
+    isPlayerTurn &&
     !displayGame.isGameOver();
 
   const promotionColor =
@@ -1523,6 +1665,7 @@ export function useOnlineChessGame({
     playerColor,
     boardOrientation,
     pendingPromotion,
+    premove,
     whiteCaptured,
     blackCaptured,
     squareStyles,
@@ -1530,6 +1673,8 @@ export function useOnlineChessGame({
     promotionColor,
 
     onDrop,
+    queuePremove,
+    clearPremove,
     resignGame,
     offerDraw,
     acceptDraw,

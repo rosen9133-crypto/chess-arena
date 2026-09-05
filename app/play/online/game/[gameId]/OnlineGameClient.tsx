@@ -10,7 +10,6 @@ import { MoveHistory } from "@/components/MoveHistory";
 import OnlineDrawDialog from "@/components/OnlineDrawDialog";
 import OnlineGameOverDialog from "@/components/OnlineGameOverDialog";
 import OnlineResignDialog from "@/components/OnlineResignDialog";
-import PromotionDialog from "@/components/PromotionDialog";
 import SoundControl from "@/components/SoundControl";
 import { useOnlineChessGame } from "@/hooks/useOnlineChessGame";
 
@@ -125,10 +124,10 @@ function PlayerClock({
 
   return (
     <div
-      className={`rounded-xl border px-3 py-1.5 transition-all ${
+      className={`rounded-xl border px-3 py-1.5 ${
         active
-          ? "border-emerald-400/70 bg-emerald-400/10 shadow-lg shadow-emerald-950/20"
-          : "border-slate-700 bg-slate-950/85"
+          ? "border-emerald-400/70 bg-emerald-400/10 shadow-[0_0_10px_rgba(52,211,153,0.16)]"
+          : "border-slate-700 bg-slate-950/85 shadow-none"
       }`}
     >
       <div className="flex items-center justify-between gap-3">
@@ -137,7 +136,7 @@ function PlayerClock({
             {label}
           </p>
 
-          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+          <div className="flex min-w-0 flex-nowrap items-center gap-x-2 overflow-hidden">
             <span
               className={`h-2.5 w-2.5 shrink-0 rounded-full ${
                 active
@@ -154,10 +153,13 @@ function PlayerClock({
             </span>
 
             {capturedPieces.length > 0 && (
-              <div className="flex min-w-0 items-center gap-0.5">
+              <div className="flex min-w-0 flex-1 items-center overflow-hidden">
                 {capturedPieces.map((piece, index) => (
-                  <span key={`${piece}-${index}`} className="shrink-0">
-                    <ChessPiece piece={piece} size={20} />
+                  <span
+                    key={`${piece}-${index}`}
+                    className="-mr-0.5 shrink-0 last:mr-0"
+                  >
+                    <ChessPiece piece={piece} size={16} />
                   </span>
                 ))}
                 {materialAdvantage > 0 && (
@@ -171,11 +173,14 @@ function PlayerClock({
         </div>
 
         <div className="shrink-0 text-right">
-          {active && (
-            <p className="text-[9px] font-bold uppercase tracking-wider text-emerald-400">
-              ● LIVE
-            </p>
-          )}
+          <p
+            className={`text-[9px] font-bold uppercase tracking-wider ${
+              active ? "text-emerald-400" : "invisible"
+            }`}
+            aria-hidden={!active}
+          >
+            ● LIVE
+          </p>
           <p className={`font-mono text-[22px] font-black leading-none tabular-nums sm:text-[26px] ${timeColorClass}`}>
             {formatClockTime(time)}
           </p>
@@ -240,8 +245,6 @@ export default function OnlineGameClient({
     ratingError,
     boardOrientation,
     squareStyles,
-    shouldShowPromotionDialog,
-    promotionColor,
 
     whiteTime,
     blackTime,
@@ -249,6 +252,9 @@ export default function OnlineGameClient({
     isClockRunning,
 
     onDrop,
+    premove,
+    queuePremove,
+    clearPremove,
     resignGame,
     offerDraw,
     acceptDraw,
@@ -285,30 +291,132 @@ export default function OnlineGameClient({
   const router = useRouter();
 
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
+  const leftGameColumnRef = useRef<HTMLDivElement | null>(null);
   const rightGameAreaRef = useRef<HTMLDivElement | null>(null);
   const [rightGameAreaHeight, setRightGameAreaHeight] = useState<number | null>(null);
 
   useEffect(() => {
     const boardArea = boardAreaRef.current;
+    if (!boardArea) return;
+
+    const applyTransparentPromotionStyle = () => {
+      const elements = Array.from(
+        boardArea.querySelectorAll<HTMLElement>("div"),
+      );
+
+      for (const element of elements) {
+        const children = Array.from(element.children) as HTMLElement[];
+
+        const isPromotionChoices =
+          children.length === 4 &&
+          children.every((child) => child.querySelector("svg"));
+
+        if (!isPromotionChoices) continue;
+
+        // Keep the native react-chessboard promotion layout,
+        // but make only the promotion choices translucent.
+        element.style.opacity = "1";
+        element.style.transform = "none";
+        element.style.transformOrigin = "center";
+        element.style.background = "rgba(15, 23, 42, 0.88)";
+        element.style.backgroundColor = "rgba(15, 23, 42, 0.88)";
+        element.style.borderRadius = "8px";
+        element.style.overflow = "visible";
+        element.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.38)";
+        element.style.transform = "translateY(8px)";
+
+        const choiceSize = Math.max(
+          34,
+          Math.min(52, boardArea.getBoundingClientRect().width / 8),
+        );
+
+        element.style.width = `${choiceSize}px`;
+        element.style.height = `${choiceSize * 4}px`;
+        element.style.display = "flex";
+        element.style.flexDirection = "column";
+
+        for (const child of children) {
+          child.style.width = `${choiceSize}px`;
+          child.style.height = `${choiceSize}px`;
+          child.style.minWidth = `${choiceSize}px`;
+          child.style.minHeight = `${choiceSize}px`;
+          child.style.background = "rgba(30, 41, 59, 0.9)";
+          child.style.backgroundColor = "rgba(30, 41, 59, 0.9)";
+          child.style.borderBottom = "1px solid rgba(148, 163, 184, 0.22)";
+          child.style.display = "flex";
+          child.style.alignItems = "center";
+          child.style.justifyContent = "center";
+
+          const svg = child.querySelector<SVGElement>("svg");
+          if (svg) {
+            svg.style.width = "82%";
+            svg.style.height = "82%";
+            svg.style.opacity = "1";
+          }
+        }
+
+        if (children.length > 0) {
+          children[children.length - 1].style.borderBottom = "none";
+        }
+
+        // The library places the choices inside a board-sized overlay.
+        // Remove only that overlay's dimming so the real board/pieces
+        // remain at their normal brightness.
+        let parent = element.parentElement;
+        const boardRect = boardArea.getBoundingClientRect();
+
+        while (parent && parent !== boardArea) {
+          const rect = parent.getBoundingClientRect();
+          const coversBoard =
+            Math.abs(rect.width - boardRect.width) < 12 &&
+            Math.abs(rect.height - boardRect.height) < 12;
+
+          if (coversBoard) {
+            parent.style.background = "transparent";
+            parent.style.backgroundColor = "transparent";
+            break;
+          }
+
+          parent = parent.parentElement;
+        }
+      }
+    };
+
+    applyTransparentPromotionStyle();
+
+    const observer = new MutationObserver(() => {
+      applyTransparentPromotionStyle();
+    });
+
+    observer.observe(boardArea, {
+      childList: true,
+      subtree: true,
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const leftGameColumn = leftGameColumnRef.current;
     const rightGameArea = rightGameAreaRef.current;
 
-    if (!boardArea || !rightGameArea) {
+    if (!leftGameColumn || !rightGameArea) {
       return;
     }
 
     const updateRightGameAreaHeight = () => {
-      const boardRect = boardArea.getBoundingClientRect();
+      const leftGameColumnRect = leftGameColumn.getBoundingClientRect();
       const rightGameAreaRect = rightGameArea.getBoundingClientRect();
 
       setRightGameAreaHeight(
-        Math.max(0, boardRect.bottom - rightGameAreaRect.top),
+        Math.max(0, leftGameColumnRect.bottom - rightGameAreaRect.top),
       );
     };
 
     updateRightGameAreaHeight();
 
     const resizeObserver = new ResizeObserver(updateRightGameAreaHeight);
-    resizeObserver.observe(boardArea);
+    resizeObserver.observe(leftGameColumn);
     resizeObserver.observe(rightGameArea);
 
     window.addEventListener("resize", updateRightGameAreaHeight);
@@ -423,6 +531,12 @@ export default function OnlineGameClient({
   const [selectedSquare, setSelectedSquare] =
     useState<Square | null>(null);
 
+  const [clickPromotion, setClickPromotion] = useState<{
+    from: Square;
+    to: Square;
+    isPremove: boolean;
+  } | null>(null);
+
   const legalMoveSquares = useMemo(() => {
     if (
       !selectedSquare ||
@@ -440,6 +554,154 @@ export default function OnlineGameClient({
     displayGame,
     isGameOver,
     isPlayerTurn,
+    selectedSquare,
+  ]);
+
+  const premoveTargetSquares = useMemo(() => {
+    if (
+      !selectedSquare ||
+      isPlayerTurn ||
+      isGameOver
+    ) {
+      return [];
+    }
+
+    const piece = displayGame.get(selectedSquare);
+
+    if (!piece || piece.color !== playerColor) {
+      return [];
+    }
+
+    const file = selectedSquare.charCodeAt(0) - 97;
+    const rank = Number(selectedSquare[1]);
+    const targets: Square[] = [];
+
+    const addTarget = (targetFile: number, targetRank: number) => {
+      if (
+        targetFile < 0 ||
+        targetFile > 7 ||
+        targetRank < 1 ||
+        targetRank > 8
+      ) {
+        return;
+      }
+
+      targets.push(
+        `${String.fromCharCode(97 + targetFile)}${targetRank}` as Square,
+      );
+    };
+
+    switch (piece.type) {
+      case "p": {
+        const direction = piece.color === "w" ? 1 : -1;
+        const startRank = piece.color === "w" ? 2 : 7;
+
+        addTarget(file, rank + direction);
+
+        if (rank === startRank) {
+          addTarget(file, rank + direction * 2);
+        }
+
+        addTarget(file - 1, rank + direction);
+        addTarget(file + 1, rank + direction);
+        break;
+      }
+
+      case "n": {
+        for (const [fileOffset, rankOffset] of [
+          [1, 2],
+          [2, 1],
+          [2, -1],
+          [1, -2],
+          [-1, -2],
+          [-2, -1],
+          [-2, 1],
+          [-1, 2],
+        ]) {
+          addTarget(file + fileOffset, rank + rankOffset);
+        }
+        break;
+      }
+
+      case "b":
+      case "r":
+      case "q": {
+        const directions =
+          piece.type === "b"
+            ? [
+                [1, 1],
+                [1, -1],
+                [-1, 1],
+                [-1, -1],
+              ]
+            : piece.type === "r"
+              ? [
+                  [1, 0],
+                  [-1, 0],
+                  [0, 1],
+                  [0, -1],
+                ]
+              : [
+                  [1, 1],
+                  [1, -1],
+                  [-1, 1],
+                  [-1, -1],
+                  [1, 0],
+                  [-1, 0],
+                  [0, 1],
+                  [0, -1],
+                ];
+
+        for (const [fileOffset, rankOffset] of directions) {
+          for (let distance = 1; distance < 8; distance += 1) {
+            const targetFile = file + fileOffset * distance;
+            const targetRank = rank + rankOffset * distance;
+
+            if (
+              targetFile < 0 ||
+              targetFile > 7 ||
+              targetRank < 1 ||
+              targetRank > 8
+            ) {
+              break;
+            }
+
+            const targetSquare =
+              `${String.fromCharCode(97 + targetFile)}${targetRank}` as Square;
+
+            targets.push(targetSquare);
+
+            if (displayGame.get(targetSquare)) {
+              break;
+            }
+          }
+        }
+        break;
+      }
+
+      case "k": {
+        for (let fileOffset = -1; fileOffset <= 1; fileOffset += 1) {
+          for (let rankOffset = -1; rankOffset <= 1; rankOffset += 1) {
+            if (fileOffset === 0 && rankOffset === 0) {
+              continue;
+            }
+
+            addTarget(file + fileOffset, rank + rankOffset);
+          }
+        }
+
+        addTarget(file + 2, rank);
+        addTarget(file - 2, rank);
+        break;
+      }
+    }
+
+    return targets;
+  }, [
+    displayGame,
+    isGameOver,
+    isPlayerTurn,
+    playerColor,
     selectedSquare,
   ]);
 
@@ -474,10 +736,35 @@ export default function OnlineGameClient({
           };
     }
 
+    for (const targetSquare of premoveTargetSquares) {
+      styles[targetSquare] = {
+        background:
+          "radial-gradient(circle, rgba(168, 85, 247, 0.8) 0 18%, transparent 20%)",
+      };
+    }
+
+    if (premove) {
+      styles[premove.from] = {
+        boxShadow:
+          "inset 0 0 0 4px rgba(168, 85, 247, 0.95)",
+        backgroundColor:
+          "rgba(168, 85, 247, 0.28)",
+      };
+
+      styles[premove.to] = {
+        boxShadow:
+          "inset 0 0 0 4px rgba(168, 85, 247, 0.95)",
+        backgroundColor:
+          "rgba(168, 85, 247, 0.4)",
+      };
+    }
+
     return styles;
   }, [
     displayGame,
     legalMoveSquares,
+    premove,
+    premoveTargetSquares,
     selectedSquare,
   ]);
 
@@ -490,14 +777,71 @@ export default function OnlineGameClient({
   );
 
   function handleSquareClick(square: string) {
-    if (!isPlayerTurn || isGameOver) {
+    if (isGameOver) {
       setSelectedSquare(null);
+      clearPremove();
       return;
     }
 
     const clickedSquare = square as Square;
     const clickedPiece =
       displayGame.get(clickedSquare);
+
+    if (!isPlayerTurn) {
+      if (premove) {
+        clearPremove();
+      }
+
+      if (selectedSquare === clickedSquare) {
+        setSelectedSquare(null);
+        return;
+      }
+
+      if (selectedSquare) {
+        const isPremoveTarget =
+          premoveTargetSquares.includes(clickedSquare);
+
+        if (isPremoveTarget) {
+          const selectedPiece = displayGame.get(selectedSquare);
+          const isPremovePromotion =
+            selectedPiece?.type === "p" &&
+            ((selectedPiece.color === "w" && clickedSquare[1] === "8") ||
+              (selectedPiece.color === "b" && clickedSquare[1] === "1"));
+
+          if (isPremovePromotion) {
+            setClickPromotion({
+              from: selectedSquare,
+              to: clickedSquare,
+              isPremove: true,
+            });
+            setSelectedSquare(null);
+            return;
+          }
+
+          queuePremove({
+            from: selectedSquare,
+            to: clickedSquare,
+          });
+          setSelectedSquare(null);
+          return;
+        }
+      }
+
+      if (
+        clickedPiece &&
+        clickedPiece.color === playerColor
+      ) {
+        setSelectedSquare(clickedSquare);
+        return;
+      }
+
+      setSelectedSquare(null);
+      return;
+    }
+
+    if (premove) {
+      clearPremove();
+    }
 
     if (selectedSquare === clickedSquare) {
       setSelectedSquare(null);
@@ -511,6 +855,22 @@ export default function OnlineGameClient({
         );
 
       if (isLegalTarget) {
+        const selectedPiece = displayGame.get(selectedSquare);
+        const isClickPromotion =
+          selectedPiece?.type === "p" &&
+          ((selectedPiece.color === "w" && clickedSquare[1] === "8") ||
+            (selectedPiece.color === "b" && clickedSquare[1] === "1"));
+
+        if (isClickPromotion) {
+          setClickPromotion({
+            from: selectedSquare,
+            to: clickedSquare,
+            isPremove: false,
+          });
+          setSelectedSquare(null);
+          return;
+        }
+
         onDrop(selectedSquare, clickedSquare);
         setSelectedSquare(null);
         return;
@@ -526,6 +886,107 @@ export default function OnlineGameClient({
     }
 
     setSelectedSquare(null);
+  }
+
+  function handleNativePromotionPieceSelect(
+    piece?: string,
+    promoteFromSquare?: string,
+    promoteToSquare?: string,
+  ) {
+    if (!piece) {
+      return false;
+    }
+
+    const promotionPiece =
+      piece[1]?.toLowerCase();
+
+    if (
+      promotionPiece !== "q" &&
+      promotionPiece !== "r" &&
+      promotionPiece !== "b" &&
+      promotionPiece !== "n"
+    ) {
+      return false;
+    }
+
+    if (clickPromotion) {
+      const { from, to, isPremove } = clickPromotion;
+      setClickPromotion(null);
+
+      if (isPremove) {
+        return queuePremove({
+          from,
+          to,
+          promotion: promotionPiece,
+        });
+      }
+
+      return onDrop(
+        from,
+        to,
+        promotionPiece,
+      );
+    }
+
+    if (
+      !promoteFromSquare ||
+      !promoteToSquare
+    ) {
+      return false;
+    }
+
+    if (!isPlayerTurn) {
+      return queuePremove({
+        from: promoteFromSquare,
+        to: promoteToSquare,
+        promotion: promotionPiece,
+      });
+    }
+
+    return onDrop(
+      promoteFromSquare,
+      promoteToSquare,
+      promotionPiece,
+    );
+  }
+
+  function handlePieceDrop(
+    sourceSquare: string,
+    targetSquare: string,
+  ) {
+    setSelectedSquare(null);
+
+    if (isGameOver) {
+      clearPremove();
+      return false;
+    }
+
+    if (isPlayerTurn) {
+      if (premove) {
+        clearPremove();
+      }
+
+      return onDrop(sourceSquare, targetSquare);
+    }
+
+    if (premove) {
+      clearPremove();
+    }
+
+    const sourcePiece = displayGame.get(sourceSquare as Square);
+    const isPremovePromotion =
+      sourcePiece?.type === "p" &&
+      ((sourcePiece.color === "w" && targetSquare[1] === "8") ||
+        (sourcePiece.color === "b" && targetSquare[1] === "1"));
+
+    if (isPremovePromotion) {
+      return false;
+    }
+
+    return queuePremove({
+      from: sourceSquare,
+      to: targetSquare,
+    });
   }
 
   const playerDrawColor =
@@ -705,12 +1166,6 @@ export default function OnlineGameClient({
 
   return (
     <>
-      <PromotionDialog
-        isOpen={shouldShowPromotionDialog}
-        color={promotionColor}
-        onSelect={handlePromotionSelect}
-      />
-
       <OnlineGameOverDialog
         isOpen={
           status === "FINISHED" &&
@@ -845,9 +1300,12 @@ export default function OnlineGameClient({
         </div>
       )}
 
-      <section className="mt-2">
-        <div className="mx-auto grid w-full max-w-[min(96vw,1500px)] items-start gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(280px,34vw)] xl:grid-cols-[minmax(0,1fr)_minmax(320px,420px)]">
-          <div className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(100dvh-118px))]">
+      <section className="mt-[clamp(0px,0.6dvh,8px)] lg:mt-[clamp(-12px,-1.2dvh,0px)]">
+        <div className="mx-auto grid w-fit max-w-full items-start gap-[clamp(6px,0.7vw,10px)] lg:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(260px,27vw)] xl:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(300px,340px)]">
+          <div
+            ref={leftGameColumnRef}
+            className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(100dvh-clamp(112px,14dvh,132px)))]"
+          >
           <PlayerClock
             username={opponent.username}
             rating={opponentDisplayedRating}
@@ -873,8 +1331,12 @@ export default function OnlineGameClient({
           >
             <Chessboard
               position={displayGame.fen()}
-              onPieceDrop={onDrop}
+              onPieceDrop={handlePieceDrop}
               onSquareClick={handleSquareClick}
+              autoPromoteToQueen={false}
+              onPromotionPieceSelect={handleNativePromotionPieceSelect}
+              showPromotionDialog={clickPromotion !== null}
+              promotionToSquare={clickPromotion?.to ?? null}
               boardOrientation={boardOrientation}
               customLightSquareStyle={{
                 backgroundColor: "#E8EDF2",
@@ -909,14 +1371,14 @@ export default function OnlineGameClient({
 
           </div>
 
-          <aside className="flex w-full min-w-0 flex-col items-center gap-3 lg:items-stretch lg:pr-1">
+          <aside className="flex w-full min-w-0 flex-col items-center gap-[clamp(6px,0.8dvh,12px)] lg:items-stretch lg:pr-1">
             <div className="w-full lg:mb-[-1px]">
               <SoundControl />
             </div>
 
             <div
               ref={rightGameAreaRef}
-              className="flex w-full min-h-0 flex-col gap-3"
+              className="flex w-full min-h-0 flex-col gap-[clamp(6px,0.8dvh,12px)]"
               style={
                 rightGameAreaHeight !== null
                   ? { height: `${rightGameAreaHeight}px` }
