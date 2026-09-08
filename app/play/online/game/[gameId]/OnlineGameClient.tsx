@@ -15,6 +15,64 @@ import { useOnlineChessGame } from "@/hooks/useOnlineChessGame";
 
 type ChessColor = "w" | "b";
 
+type ArenaId =
+  | "classic"
+  | "roman-colosseum"
+  | "frozen-kingdom"
+  | "cosmic-arena"
+  | "inferno-arena"
+  | "dragon-temple"
+  | "desert-oasis";
+
+type ArenaEffectsLevel = "off" | "low" | "high";
+
+type ArenaDefinition = {
+  id: ArenaId;
+  name: string;
+  premium: boolean;
+};
+
+const ARENAS: Record<ArenaId, ArenaDefinition> = {
+  classic: {
+    id: "classic",
+    name: "Classic Chess Arena",
+    premium: false,
+  },
+  "roman-colosseum": {
+    id: "roman-colosseum",
+    name: "Roman Colosseum",
+    premium: true,
+  },
+  "frozen-kingdom": {
+    id: "frozen-kingdom",
+    name: "Frozen Kingdom",
+    premium: true,
+  },
+  "cosmic-arena": {
+    id: "cosmic-arena",
+    name: "Cosmic Arena",
+    premium: true,
+  },
+  "inferno-arena": {
+    id: "inferno-arena",
+    name: "Inferno Arena",
+    premium: true,
+  },
+  "dragon-temple": {
+    id: "dragon-temple",
+    name: "Dragon Temple",
+    premium: true,
+  },
+  "desert-oasis": {
+    id: "desert-oasis",
+    name: "Desert Oasis",
+    premium: true,
+  },
+};
+
+const DEFAULT_ARENA_ID: ArenaId = "classic";
+const DEFAULT_ARENA_EFFECTS: ArenaEffectsLevel = "high";
+
 type OpeningInfo = {
   eco: string;
   name: string;
@@ -290,6 +348,13 @@ export default function OnlineGameClient({
 
   const router = useRouter();
 
+  // Arena foundation:
+  // The game remains on Classic for now. Later steps can switch this ID
+  // from the player's owned/selected Arena without touching chess logic.
+  const activeArenaId: ArenaId = DEFAULT_ARENA_ID;
+  const activeArena = ARENAS[activeArenaId];
+  const arenaEffects: ArenaEffectsLevel = DEFAULT_ARENA_EFFECTS;
+
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
   const leftGameColumnRef = useRef<HTMLDivElement | null>(null);
   const rightGameAreaRef = useRef<HTMLDivElement | null>(null);
@@ -532,6 +597,12 @@ export default function OnlineGameClient({
     useState<Square | null>(null);
 
   const [clickPromotion, setClickPromotion] = useState<{
+    from: Square;
+    to: Square;
+    isPremove: boolean;
+  } | null>(null);
+
+  const clickPromotionRef = useRef<{
     from: Square;
     to: Square;
     isPremove: boolean;
@@ -809,12 +880,21 @@ export default function OnlineGameClient({
               (selectedPiece.color === "b" && clickedSquare[1] === "1"));
 
           if (isPremovePromotion) {
-            setClickPromotion({
+            const pendingPromotion = {
               from: selectedSquare,
               to: clickedSquare,
               isPremove: true,
-            });
+            };
+
+            clickPromotionRef.current = pendingPromotion;
             setSelectedSquare(null);
+
+            window.requestAnimationFrame(() => {
+              if (clickPromotionRef.current === pendingPromotion) {
+                setClickPromotion(pendingPromotion);
+              }
+            });
+
             return;
           }
 
@@ -862,12 +942,21 @@ export default function OnlineGameClient({
             (selectedPiece.color === "b" && clickedSquare[1] === "1"));
 
         if (isClickPromotion) {
-          setClickPromotion({
+          const pendingPromotion = {
             from: selectedSquare,
             to: clickedSquare,
             isPremove: false,
-          });
+          };
+
+          clickPromotionRef.current = pendingPromotion;
           setSelectedSquare(null);
+
+          window.requestAnimationFrame(() => {
+            if (clickPromotionRef.current === pendingPromotion) {
+              setClickPromotion(pendingPromotion);
+            }
+          });
+
           return;
         }
 
@@ -909,8 +998,12 @@ export default function OnlineGameClient({
       return false;
     }
 
-    if (clickPromotion) {
-      const { from, to, isPremove } = clickPromotion;
+    const pendingClickPromotion = clickPromotionRef.current;
+
+    if (pendingClickPromotion) {
+      const { from, to, isPremove } = pendingClickPromotion;
+
+      clickPromotionRef.current = null;
       setClickPromotion(null);
 
       if (isPremove) {
@@ -1300,7 +1393,11 @@ export default function OnlineGameClient({
         </div>
       )}
 
-      <section className="mt-[clamp(0px,0.6dvh,8px)] lg:mt-[clamp(-12px,-1.2dvh,0px)]">
+      <section
+        data-arena={activeArena.id}
+        data-arena-effects={arenaEffects}
+        className="mt-[clamp(0px,0.6dvh,8px)] lg:mt-[clamp(-12px,-1.2dvh,0px)]"
+      >
         <div className="mx-auto grid w-fit max-w-full items-start gap-[clamp(6px,0.7vw,10px)] lg:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(260px,27vw)] xl:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(300px,340px)]">
           <div
             ref={leftGameColumnRef}
