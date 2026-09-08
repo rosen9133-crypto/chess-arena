@@ -228,7 +228,7 @@ export async function POST(request: Request) {
                   game.incrementSeconds,
                 whiteTimeMs: initialTimeMs,
                 blackTimeMs: initialTimeMs,
-                clockStartedAt: new Date(),
+                clockStartedAt: null,
               },
               select: {
                 id: true,

@@ -496,13 +496,16 @@ export async function POST(request: Request) {
 
       const now = new Date();
 
-      const elapsedMs = game.clockStartedAt
-        ? Math.max(
-            0,
-            now.getTime() -
-              game.clockStartedAt.getTime(),
-          )
-        : 0;
+      const isFirstMove = chess.history().length === 0;
+
+      const elapsedMs =
+        !isFirstMove && game.clockStartedAt
+          ? Math.max(
+              0,
+              now.getTime() -
+                game.clockStartedAt.getTime(),
+            )
+          : 0;
 
       const currentPlayerTimeMs =
         movingColor === "w"

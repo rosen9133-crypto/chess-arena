@@ -269,7 +269,7 @@ export async function POST(request: Request) {
 
             whiteTimeMs: initialTimeMs,
             blackTimeMs: initialTimeMs,
-            clockStartedAt: new Date(),
+            clockStartedAt: null,
           },
           select: {
             id: true,
