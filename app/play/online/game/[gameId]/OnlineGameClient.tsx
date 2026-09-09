@@ -189,7 +189,7 @@ function PlayerClock({
       }`}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-slate-500">
             {label}
           </p>
@@ -202,11 +202,10 @@ function PlayerClock({
                   : "bg-slate-600"
               }`}
             />
-            <div className="h-4 w-0 shrink-0" aria-hidden="true" />
-            <p className="truncate text-[15px] font-black leading-tight text-white">
+            <p className="shrink-0 whitespace-nowrap text-[15px] font-black leading-tight text-white">
               {username}
             </p>
-            <span className="shrink-0 text-xs font-bold text-yellow-300">
+            <span className="shrink-0 whitespace-nowrap text-xs font-bold text-yellow-300">
               ({rating}) 🏆
             </span>
 
@@ -266,6 +265,114 @@ function getCapturedMaterialValue(pieces: string[]) {
     (total, piece) =>
       total + (capturedPieceValues[piece] ?? 0),
     0,
+  );
+}
+
+
+type OnlineNavItem = {
+  label: string;
+  icon: string;
+  href: string;
+};
+
+const ONLINE_NAV_ITEMS: OnlineNavItem[] = [
+  { label: "Home", icon: "⌂", href: "/dashboard" },
+  { label: "Play Online", icon: "♟", href: "/play/online" },
+  { label: "Play Computer", icon: "♞", href: "/play/computer" },
+  { label: "Tournaments", icon: "♛", href: "/tournaments" },
+  { label: "Puzzles", icon: "◆", href: "/puzzles" },
+  { label: "Learn", icon: "▤", href: "/learn" },
+  { label: "Arenas", icon: "♜", href: "/arenas" },
+  { label: "Community", icon: "♚", href: "/community" },
+  { label: "Leaderboard", icon: "★", href: "/leaderboard" },
+  { label: "Profile", icon: "●", href: "/profile" },
+  { label: "Shop", icon: "◇", href: "/shop" },
+];
+
+function OnlineGameNavigation({
+  username,
+  rating,
+  onNavigate,
+}: {
+  username: string;
+  rating: number;
+  onNavigate: (href: string) => void;
+}) {
+  return (
+    <aside className="hidden lg:sticky lg:left-0 lg:top-0 lg:flex lg:h-dvh lg:w-[clamp(180px,14vw,230px)] lg:shrink-0 lg:flex-col lg:overflow-hidden lg:rounded-none lg:border-r lg:border-amber-300/15 lg:bg-[linear-gradient(180deg,rgba(10,14,21,0.98),rgba(5,8,13,0.98))] lg:p-2.5 lg:shadow-[12px_0_40px_rgba(0,0,0,0.28)]">
+      <button
+        type="button"
+        onClick={() => onNavigate("/dashboard")}
+        className="flex items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-white/[0.04]"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-yellow-400/25 bg-yellow-400/10 text-lg text-yellow-300">
+          ♚
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[13px] font-black tracking-wide text-white">
+            CHESS ARENA
+          </span>
+          <span className="block text-[8px] font-bold uppercase tracking-[0.22em] text-yellow-400/75">
+            Your Game. Your Arena.
+          </span>
+        </span>
+      </button>
+
+      <nav className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
+        {ONLINE_NAV_ITEMS.map((item) => {
+          const active = item.label === "Play Online";
+
+          return (
+            <button
+              key={item.label}
+              type="button"
+              onClick={() => onNavigate(item.href)}
+              className={`flex min-h-9 items-center gap-2.5 rounded-lg px-2.5 text-left text-[12px] font-bold transition ${
+                active
+                  ? "border border-yellow-400/25 bg-yellow-400/10 text-yellow-300"
+                  : "border border-transparent text-slate-300 hover:bg-white/[0.045] hover:text-white"
+              }`}
+            >
+              <span className="w-5 shrink-0 text-center text-[14px]">
+                {item.icon}
+              </span>
+              <span className="truncate">{item.label}</span>
+            </button>
+          );
+        })}
+
+        <button
+          type="button"
+          onClick={() => onNavigate("/gold-pass")}
+          className="mt-2 rounded-xl border border-yellow-400/25 bg-[linear-gradient(135deg,rgba(250,204,21,0.13),rgba(161,98,7,0.08))] px-3 py-2.5 text-left transition hover:border-yellow-400/45 hover:bg-yellow-400/15"
+        >
+          <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">
+            Gold Pass
+          </span>
+          <span className="mt-0.5 block text-[9px] leading-tight text-slate-400">
+            Unlock premium Arena cosmetics.
+          </span>
+        </button>
+      </nav>
+
+      <button
+        type="button"
+        onClick={() => onNavigate("/profile")}
+        className="mt-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/65 p-2 text-left transition hover:border-slate-700"
+      >
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-yellow-400/25 bg-slate-900 text-xs font-black text-yellow-300">
+          {username.slice(0, 1).toUpperCase()}
+        </span>
+        <span className="min-w-0">
+          <span className="block truncate text-[11px] font-black text-white">
+            {username}
+          </span>
+          <span className="block text-[9px] font-bold text-yellow-300">
+            {rating} 🏆
+          </span>
+        </span>
+      </button>
+    </aside>
   );
 }
 
@@ -348,10 +455,14 @@ export default function OnlineGameClient({
 
   const router = useRouter();
 
+  function navigateFromSidebar(href: string) {
+    router.push(href);
+  }
+
   // Arena foundation:
   // The game remains on Classic for now. Later steps can switch this ID
   // from the player's owned/selected Arena without touching chess logic.
-  const activeArenaId: ArenaId = DEFAULT_ARENA_ID;
+  const activeArenaId: ArenaId = "roman-colosseum";
   const activeArena = ARENAS[activeArenaId];
   const arenaEffects: ArenaEffectsLevel = DEFAULT_ARENA_EFFECTS;
 
@@ -1393,12 +1504,39 @@ export default function OnlineGameClient({
         </div>
       )}
 
+      <div className="grid w-full grid-cols-[clamp(180px,14vw,230px)_minmax(0,1fr)] items-start gap-[clamp(8px,1vw,16px)] pr-[clamp(4px,0.7vw,12px)]">
+        <OnlineGameNavigation
+          username={currentPlayer.username}
+          rating={currentPlayerDisplayedRating}
+          onNavigate={navigateFromSidebar}
+        />
+
+        <main className="min-w-0 flex-1">
       <section
         data-arena={activeArena.id}
         data-arena-effects={arenaEffects}
-        className="mt-[clamp(0px,0.6dvh,8px)] lg:mt-[clamp(-12px,-1.2dvh,0px)]"
+        className={`relative mt-[clamp(0px,0.6dvh,8px)] overflow-hidden rounded-[clamp(0px,1.8vw,28px)] lg:mt-[clamp(-12px,-1.2dvh,0px)] ${
+          activeArena.id === "roman-colosseum"
+            ? "border border-amber-300/20 bg-[radial-gradient(circle_at_50%_8%,rgba(251,191,36,0.18),transparent_32%),linear-gradient(180deg,rgba(68,45,25,0.96)_0%,rgba(30,24,20,0.98)_44%,rgba(10,13,18,1)_100%)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
+            : ""
+        }`}
       >
-        <div className="mx-auto grid w-fit max-w-full items-start gap-[clamp(6px,0.7vw,10px)] lg:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(260px,27vw)] xl:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(300px,340px)]">
+        {activeArena.id === "roman-colosseum" && (
+          <>
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[clamp(54px,8dvh,92px)] border-b border-amber-200/10 bg-[linear-gradient(180deg,rgba(120,72,30,0.24),rgba(30,24,20,0.08))]" />
+            <div aria-hidden="true" className="pointer-events-none absolute left-[3%] top-[clamp(22px,5dvh,58px)] h-[clamp(90px,19dvh,190px)] w-[clamp(10px,1.1vw,18px)] rounded-full bg-gradient-to-b from-amber-200/25 via-orange-500/12 to-transparent blur-[2px]" />
+            <div aria-hidden="true" className="pointer-events-none absolute right-[3%] top-[clamp(22px,5dvh,58px)] h-[clamp(90px,19dvh,190px)] w-[clamp(10px,1.1vw,18px)] rounded-full bg-gradient-to-b from-amber-200/25 via-orange-500/12 to-transparent blur-[2px]" />
+            <div aria-hidden="true" className="pointer-events-none absolute inset-x-[7%] bottom-0 h-[clamp(42px,7dvh,74px)] rounded-t-[50%] border-t border-amber-200/10 bg-[radial-gradient(ellipse_at_center,rgba(161,98,40,0.16),rgba(15,18,24,0)_70%)]" />
+          </>
+        )}
+
+        <div
+          className={`relative z-10 mx-auto grid w-fit max-w-full items-start gap-[clamp(6px,0.7vw,10px)] lg:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(220px,20vw)] xl:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(230px,270px)] ${
+            activeArena.id === "roman-colosseum"
+              ? "px-[clamp(6px,1.2vw,18px)] py-[clamp(2px,0.55dvh,8px)]"
+              : ""
+          }`}
+        >
           <div
             ref={leftGameColumnRef}
             className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(100dvh-clamp(112px,14dvh,132px)))]"
@@ -1507,7 +1645,7 @@ export default function OnlineGameClient({
 
             {!isGameOver && (
               <div className="w-full rounded-2xl border border-slate-700 bg-slate-900/90 p-3 shadow-xl shadow-black/20">
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
                     onClick={() => setIsDrawDialogOpen(true)}
@@ -1552,16 +1690,6 @@ export default function OnlineGameClient({
                     🔄 Flip Board
                   </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      router.push("/dashboard");
-                      router.refresh();
-                    }}
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-slate-400 hover:bg-slate-700 active:scale-[0.98]"
-                  >
-                    🏠 Dashboard
-                  </button>
                 </div>
 
                 {hasOutgoingDrawOffer && (
@@ -1672,6 +1800,8 @@ export default function OnlineGameClient({
           </aside>
         </div>
       </section>
+        </main>
+      </div>
     </>
   );
 }

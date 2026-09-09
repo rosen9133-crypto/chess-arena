@@ -125,8 +125,8 @@ export default async function OnlineGamePage({
   };
 
   return (
-    <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#172554_0%,_#0f172a_45%,_#020617_100%)] px-3 py-2 text-slate-50 sm:px-4">
-      <div className="mx-auto w-full max-w-[1120px]">
+    <main className="min-h-screen w-full bg-[radial-gradient(circle_at_top,_#172554_0%,_#0f172a_45%,_#020617_100%)] py-2 text-slate-50">
+      <div className="w-full">
         <OnlineGameClient
           gameId={game.id}
           playerColor={playerColor}
@@ -140,5 +140,4 @@ export default async function OnlineGamePage({
       </div>
     </main>
   );
-
 }
