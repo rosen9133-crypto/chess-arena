@@ -71,19 +71,22 @@ export function MoveHistory({
       moveIndex === history.length;
 
     if (isActive) {
-      return "bg-green-500 text-slate-950";
+      return "bg-green-500 text-slate-950 shadow-[0_0_12px_rgba(34,197,94,0.18)]";
     }
 
     if (isLastRealMove) {
-      return "bg-yellow-400 text-slate-950";
+      return "bg-amber-400 text-slate-950 shadow-[0_0_12px_rgba(251,191,36,0.16)]";
     }
 
-    return "text-white hover:bg-slate-700";
+    return "text-stone-100 hover:bg-amber-300/10 hover:text-amber-100";
   }
 
+  const navigationButtonClass =
+    "rounded-lg border border-amber-200/15 bg-black/35 px-2 py-1 text-sm font-bold text-stone-100 shadow-inner transition hover:border-amber-400/55 hover:bg-amber-300/10 hover:text-amber-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-amber-200/15 disabled:hover:bg-black/35 disabled:hover:text-stone-100";
+
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-slate-700 bg-slate-800 p-3 text-white shadow-lg">
-      <h2 className="mb-2 text-lg font-bold text-yellow-400">
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-amber-300/25 bg-[linear-gradient(180deg,rgba(12,10,8,0.88),rgba(5,7,10,0.92))] p-3 text-white shadow-[0_16px_38px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(251,191,36,0.06)]">
+      <h2 className="mb-2 text-lg font-bold tracking-wide text-amber-400">
         📜 Move History
       </h2>
 
@@ -94,7 +97,7 @@ export function MoveHistory({
           disabled={isAtFirstMove}
           aria-label="Go to starting position"
           title="Starting position"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className={navigationButtonClass}
         >
           ⏮️
         </button>
@@ -105,7 +108,7 @@ export function MoveHistory({
           disabled={isAtFirstMove}
           aria-label="Go to previous move"
           title="Previous move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className={navigationButtonClass}
         >
           ◀️
         </button>
@@ -116,7 +119,7 @@ export function MoveHistory({
           disabled={isAtLastMove}
           aria-label="Go to next move"
           title="Next move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className={navigationButtonClass}
         >
           ▶️
         </button>
@@ -127,25 +130,25 @@ export function MoveHistory({
           disabled={isAtLastMove}
           aria-label="Go to latest move"
           title="Latest move"
-          className="rounded-lg border border-slate-600 bg-slate-900 px-2 py-1 text-sm font-bold text-white transition hover:border-yellow-400 hover:text-yellow-400 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:border-slate-600 disabled:hover:text-white"
+          className={navigationButtonClass}
         >
           ⏭️
         </button>
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-slate-700">
+        <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-amber-200/15 bg-black/30 shadow-inner">
           <button
             type="button"
             onClick={onFirstMove}
-            className="flex w-full flex-1 items-start bg-slate-900 px-3 py-3 text-left text-sm font-medium text-slate-300 transition hover:bg-slate-700"
+            className="flex w-full flex-1 items-start bg-transparent px-3 py-3 text-left text-sm font-medium text-stone-300 transition hover:bg-amber-300/10 hover:text-amber-100"
           >
             Starting Position
           </button>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-700">
-          <div className="grid shrink-0 grid-cols-[38px_1fr_1fr] bg-slate-900 px-2 py-1 text-xs font-bold text-yellow-400">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-amber-200/15 bg-black/25 shadow-inner">
+          <div className="grid shrink-0 grid-cols-[38px_1fr_1fr] border-b border-amber-200/15 bg-black/40 px-2 py-1 text-xs font-bold text-amber-400">
             <div>#</div>
             <div>⚪ White</div>
             <div>⚫ Black</div>
@@ -158,9 +161,9 @@ export function MoveHistory({
             {rows.map((row) => (
               <div
                 key={row.move}
-                className="grid grid-cols-[38px_1fr_1fr] border-t border-slate-700 px-2 py-0.5"
+                className="grid grid-cols-[38px_1fr_1fr] border-t border-amber-100/10 px-2 py-0.5 first:border-t-0"
               >
-                <div className="flex items-center text-sm font-bold text-yellow-400">
+                <div className="flex items-center text-sm font-bold text-amber-400">
                   {row.move}.
                 </div>
 
@@ -201,16 +204,15 @@ export function MoveHistory({
                 </div>
               </div>
             ))}
-
           </div>
 
           {result && (
-            <div className="shrink-0 border-t border-slate-700 bg-slate-900 px-3 py-2 text-center">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">
+            <div className="shrink-0 border-t border-amber-200/15 bg-black/40 px-3 py-2 text-center">
+              <p className="text-[10px] uppercase tracking-widest text-stone-400">
                 Result
               </p>
 
-              <p className="mt-1 text-xl font-extrabold text-yellow-400">
+              <p className="mt-1 text-xl font-extrabold text-amber-400">
                 {result}
               </p>
             </div>
@@ -218,7 +220,7 @@ export function MoveHistory({
         </div>
       )}
 
-      <div className="mt-1 flex shrink-0 items-center justify-between text-xs text-slate-400">
+      <div className="mt-1 flex shrink-0 items-center justify-between text-xs text-stone-400">
         <span>
           Viewing: {currentMoveIndex}/
           {history.length}

@@ -82,7 +82,7 @@ export default function SoundControl() {
         : "🔊";
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-slate-700/80 bg-slate-900/55 px-3 py-2 shadow-sm">
+    <div className="flex items-center gap-3 rounded-xl border border-amber-300/25 bg-[linear-gradient(180deg,rgba(12,10,8,0.88),rgba(5,7,10,0.92))] px-3 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(251,191,36,0.06)]">
       <button
         type="button"
         onClick={handleToggleMute}
@@ -92,7 +92,7 @@ export default function SoundControl() {
         title={
           muted ? "Unmute sound" : "Mute sound"
         }
-        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-800 text-lg transition hover:border-yellow-400 active:scale-[0.96]"
+        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-amber-200/15 bg-black/35 text-lg shadow-inner transition hover:border-amber-400/55 hover:bg-amber-300/10 active:scale-[0.96]"
       >
         {soundIcon}
       </button>
@@ -106,10 +106,10 @@ export default function SoundControl() {
           value={displayedVolume}
           onChange={handleVolumeChange}
           aria-label="Master volume"
-          className="h-2 w-full cursor-pointer accent-yellow-400"
+          className="h-2 w-full cursor-pointer accent-amber-400"
         />
 
-        <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-slate-300">
+        <span className="w-10 shrink-0 text-right text-sm font-semibold tabular-nums text-amber-100/90">
           {displayedVolume}%
         </span>
       </div>

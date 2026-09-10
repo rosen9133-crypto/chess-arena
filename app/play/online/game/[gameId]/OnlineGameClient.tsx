@@ -184,8 +184,8 @@ function PlayerClock({
     <div
       className={`rounded-xl border px-3 py-1.5 ${
         active
-          ? "border-emerald-400/70 bg-emerald-400/10 shadow-[0_0_10px_rgba(52,211,153,0.16)]"
-          : "border-slate-700 bg-slate-950/85 shadow-none"
+          ? "border-emerald-400/70 bg-[linear-gradient(135deg,rgba(5,12,16,0.92),rgba(26,20,12,0.82))] shadow-[0_0_14px_rgba(52,211,153,0.14),0_10px_28px_rgba(0,0,0,0.28)] backdrop-blur-md"
+          : "border-amber-200/20 bg-[linear-gradient(135deg,rgba(5,8,13,0.90),rgba(24,18,11,0.80))] shadow-[0_10px_28px_rgba(0,0,0,0.24)] backdrop-blur-md"
       }`}
     >
       <div className="flex items-center justify-between gap-3">
@@ -299,7 +299,7 @@ function OnlineGameNavigation({
   onNavigate: (href: string) => void;
 }) {
   return (
-    <aside className="hidden lg:sticky lg:left-0 lg:top-0 lg:flex lg:h-dvh lg:w-[clamp(180px,14vw,230px)] lg:shrink-0 lg:flex-col lg:overflow-hidden lg:rounded-none lg:border-r lg:border-amber-300/15 lg:bg-[linear-gradient(180deg,rgba(10,14,21,0.98),rgba(5,8,13,0.98))] lg:p-2.5 lg:shadow-[12px_0_40px_rgba(0,0,0,0.28)]">
+    <aside className="relative z-20 hidden lg:sticky lg:left-0 lg:top-0 lg:flex lg:h-dvh lg:w-[clamp(180px,14vw,230px)] lg:shrink-0 lg:flex-col lg:overflow-hidden lg:rounded-none lg:border-r lg:border-amber-200/15 lg:bg-[linear-gradient(180deg,rgba(5,8,13,0.68),rgba(5,8,13,0.78))] lg:p-2.5 lg:shadow-[12px_0_40px_rgba(0,0,0,0.24)] lg:backdrop-blur-[5px]">
       <button
         type="button"
         onClick={() => onNavigate("/dashboard")}
@@ -318,7 +318,7 @@ function OnlineGameNavigation({
         </span>
       </button>
 
-      <nav className="mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
+      <nav className="arena-nav-scrollbar mt-2 flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
         {ONLINE_NAV_ITEMS.map((item) => {
           const active = item.label === "Play Online";
 
@@ -349,7 +349,7 @@ function OnlineGameNavigation({
           <span className="block text-[10px] font-black uppercase tracking-[0.18em] text-yellow-300">
             Gold Pass
           </span>
-          <span className="mt-0.5 block text-[9px] leading-tight text-slate-400">
+          <span className="mt-1 block text-[11px] font-medium leading-snug text-slate-300">
             Unlock premium Arena cosmetics.
           </span>
         </button>
@@ -464,7 +464,8 @@ export default function OnlineGameClient({
   // from the player's owned/selected Arena without touching chess logic.
   const activeArenaId: ArenaId = "roman-colosseum";
   const activeArena = ARENAS[activeArenaId];
-  const arenaEffects: ArenaEffectsLevel = DEFAULT_ARENA_EFFECTS;
+  const [arenaEffects, setArenaEffects] =
+    useState<ArenaEffectsLevel>(DEFAULT_ARENA_EFFECTS);
 
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
   const leftGameColumnRef = useRef<HTMLDivElement | null>(null);
@@ -1504,7 +1505,86 @@ export default function OnlineGameClient({
         </div>
       )}
 
-      <div className="grid w-full grid-cols-[clamp(180px,14vw,230px)_minmax(0,1fr)] items-start gap-[clamp(8px,1vw,16px)] pr-[clamp(4px,0.7vw,12px)]">
+      <div className="relative isolate grid min-h-dvh w-full grid-cols-[clamp(180px,14vw,230px)_minmax(0,1fr)] items-start gap-[clamp(8px,1vw,16px)] overflow-hidden pr-[clamp(4px,0.7vw,12px)]">
+        {activeArena.id === "roman-colosseum" && (
+          <>
+            <div
+              aria-hidden="true"
+              className="roman-scene-layer pointer-events-none absolute -z-20"
+            >
+              <img
+                src="/arenas/roman-colosseum/roman-colosseum.png"
+                alt=""
+                className="absolute inset-0 h-full w-full"
+              />
+
+              {arenaEffects !== "off" && (
+                <video
+                  className="roman-real-fire roman-real-fire-test"
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
+                >
+                  <source
+                    src="/arenas/roman-colosseum/roman-torch-flame-2.webm"
+                    type="video/webm"
+                  />
+                </video>
+              )}
+
+              {arenaEffects === "high" && (
+                <>
+                  <video
+                    className="roman-real-fire roman-real-fire-high-right"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    preload="auto"
+                  >
+                    <source
+                      src="/arenas/roman-colosseum/roman-torch-flame-2.webm"
+                      type="video/webm"
+                    />
+                  </video>
+                </>
+              )}
+            </div>
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(3,6,11,0.34)_0%,rgba(3,6,11,0.12)_22%,rgba(3,6,11,0.06)_58%,rgba(3,6,11,0.22)_100%),linear-gradient(180deg,rgba(2,6,12,0.08)_0%,rgba(2,6,12,0.04)_58%,rgba(2,6,12,0.18)_100%)]"
+            />
+
+            {arenaEffects !== "off" && (
+              <div
+                aria-hidden="true"
+                className={`roman-fire-effects pointer-events-none absolute inset-0 -z-[5] ${
+                  arenaEffects === "high" ? "roman-fire-effects-high" : ""
+                }`}
+              >
+
+
+                {arenaEffects === "high" && (
+                  <>
+                    <span className="roman-ember roman-ember-1" />
+                    <span className="roman-ember roman-ember-2" />
+                    <span className="roman-ember roman-ember-3" />
+                    <span className="roman-ember roman-ember-4" />
+                    <span className="roman-ember roman-ember-5" />
+                    <span className="roman-ember roman-ember-6" />
+                    <span className="roman-ember roman-ember-7" />
+                    <span className="roman-ember roman-ember-8" />
+                    <span className="roman-ember roman-ember-9" />
+                    <span className="roman-ember roman-ember-10" />
+                  </>
+                )}
+              </div>
+            )}
+          </>
+        )}
+
         <OnlineGameNavigation
           username={currentPlayer.username}
           rating={currentPlayerDisplayedRating}
@@ -1517,29 +1597,43 @@ export default function OnlineGameClient({
         data-arena-effects={arenaEffects}
         className={`relative mt-[clamp(0px,0.6dvh,8px)] overflow-hidden rounded-[clamp(0px,1.8vw,28px)] lg:mt-[clamp(-12px,-1.2dvh,0px)] ${
           activeArena.id === "roman-colosseum"
-            ? "border border-amber-300/20 bg-[radial-gradient(circle_at_50%_8%,rgba(251,191,36,0.18),transparent_32%),linear-gradient(180deg,rgba(68,45,25,0.96)_0%,rgba(30,24,20,0.98)_44%,rgba(10,13,18,1)_100%)] shadow-[0_24px_80px_rgba(0,0,0,0.55)]"
+            ? "border border-amber-200/15 bg-black/10 shadow-[0_24px_80px_rgba(0,0,0,0.30)]"
             : ""
         }`}
       >
         {activeArena.id === "roman-colosseum" && (
-          <>
-            <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 h-[clamp(54px,8dvh,92px)] border-b border-amber-200/10 bg-[linear-gradient(180deg,rgba(120,72,30,0.24),rgba(30,24,20,0.08))]" />
-            <div aria-hidden="true" className="pointer-events-none absolute left-[3%] top-[clamp(22px,5dvh,58px)] h-[clamp(90px,19dvh,190px)] w-[clamp(10px,1.1vw,18px)] rounded-full bg-gradient-to-b from-amber-200/25 via-orange-500/12 to-transparent blur-[2px]" />
-            <div aria-hidden="true" className="pointer-events-none absolute right-[3%] top-[clamp(22px,5dvh,58px)] h-[clamp(90px,19dvh,190px)] w-[clamp(10px,1.1vw,18px)] rounded-full bg-gradient-to-b from-amber-200/25 via-orange-500/12 to-transparent blur-[2px]" />
-            <div aria-hidden="true" className="pointer-events-none absolute inset-x-[7%] bottom-0 h-[clamp(42px,7dvh,74px)] rounded-t-[50%] border-t border-amber-200/10 bg-[radial-gradient(ellipse_at_center,rgba(161,98,40,0.16),rgba(15,18,24,0)_70%)]" />
-          </>
+          <div className="relative z-20 mx-auto flex w-fit items-center gap-1 rounded-full border border-amber-200/20 bg-black/55 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
+            <span className="px-2 text-[9px] font-black uppercase tracking-[0.16em] text-amber-100/75">
+              Arena Effects
+            </span>
+            {(["off", "low", "high"] as ArenaEffectsLevel[]).map((level) => (
+              <button
+                key={level}
+                type="button"
+                onClick={() => setArenaEffects(level)}
+                aria-pressed={arenaEffects === level}
+                className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] transition ${
+                  arenaEffects === level
+                    ? "bg-amber-300 text-slate-950 shadow-[0_0_14px_rgba(251,191,36,0.22)]"
+                    : "text-slate-300 hover:bg-white/10 hover:text-white"
+                }`}
+              >
+                {level}
+              </button>
+            ))}
+          </div>
         )}
 
         <div
-          className={`relative z-10 mx-auto grid w-fit max-w-full items-start gap-[clamp(6px,0.7vw,10px)] lg:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(220px,20vw)] xl:grid-cols-[minmax(0,calc(100dvh-clamp(112px,14dvh,132px)))_minmax(230px,270px)] ${
+          className={`relative z-10 mx-auto grid w-fit max-w-full items-start gap-[clamp(6px,0.7vw,10px)] lg:grid-cols-[minmax(0,calc(88dvh-clamp(82px,10dvh,104px)))_minmax(200px,18vw)] xl:grid-cols-[minmax(0,calc(90dvh-clamp(86px,10dvh,108px)))_minmax(210px,250px)] ${
             activeArena.id === "roman-colosseum"
-              ? "px-[clamp(6px,1.2vw,18px)] py-[clamp(2px,0.55dvh,8px)]"
+              ? "px-[clamp(12px,2.2vw,34px)] py-[clamp(8px,1.5dvh,18px)]"
               : ""
           }`}
         >
           <div
             ref={leftGameColumnRef}
-            className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(100dvh-clamp(112px,14dvh,132px)))]"
+            className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(88dvh-clamp(82px,10dvh,104px)))] xl:w-[min(100%,calc(90dvh-clamp(86px,10dvh,108px)))]"
           >
           <PlayerClock
             username={opponent.username}
@@ -1562,7 +1656,7 @@ export default function OnlineGameClient({
 
           <div
             ref={boardAreaRef}
-            className="mt-1.5 overflow-hidden rounded-2xl border border-slate-700 bg-slate-800 p-1.5 shadow-2xl shadow-black/30"
+            className="mt-1.5 overflow-hidden rounded-2xl border border-amber-200/30 bg-[linear-gradient(145deg,rgba(24,18,11,0.96),rgba(5,8,13,0.96))] p-1.5 shadow-[0_18px_48px_rgba(0,0,0,0.46),0_0_0_1px_rgba(245,158,11,0.08),0_0_24px_rgba(245,158,11,0.08)]"
           >
             <Chessboard
               position={displayGame.fen()}
@@ -1574,10 +1668,18 @@ export default function OnlineGameClient({
               promotionToSquare={clickPromotion?.to ?? null}
               boardOrientation={boardOrientation}
               customLightSquareStyle={{
-                backgroundColor: "#E8EDF2",
+                backgroundColor:
+                  activeArena.id === "roman-colosseum"
+                    ? "#D8C39A"
+                    : "#E8EDF2",
+                backgroundImage: "none",
               }}
               customDarkSquareStyle={{
-                backgroundColor: "#4F6F8F",
+                backgroundColor:
+                  activeArena.id === "roman-colosseum"
+                    ? "#76563A"
+                    : "#4F6F8F",
+                backgroundImage: "none",
               }}
               customSquareStyles={boardSquareStyles}
             />
@@ -1621,7 +1723,7 @@ export default function OnlineGameClient({
               }
             >
             {opening && (
-              <div className="w-full rounded-xl border border-yellow-400/30 bg-yellow-400/10 px-4 py-3">
+              <div className="w-full rounded-xl border border-amber-300/30 bg-[linear-gradient(135deg,rgba(31,23,13,0.88),rgba(5,8,13,0.86))] px-4 py-3 shadow-[0_10px_30px_rgba(0,0,0,0.24)] backdrop-blur-md">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-yellow-400">
                   Opening
                 </p>
@@ -1644,7 +1746,7 @@ export default function OnlineGameClient({
             />
 
             {!isGameOver && (
-              <div className="w-full rounded-2xl border border-slate-700 bg-slate-900/90 p-3 shadow-xl shadow-black/20">
+              <div className="w-full rounded-2xl border border-amber-200/20 bg-[linear-gradient(145deg,rgba(5,8,13,0.90),rgba(30,22,12,0.82))] p-3 shadow-[0_14px_36px_rgba(0,0,0,0.28)] backdrop-blur-md">
                 <div className="grid grid-cols-3 gap-2">
                   <button
                     type="button"
@@ -1661,7 +1763,7 @@ export default function OnlineGameClient({
                       isProcessingDraw ||
                       isResigning
                     }
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-white/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {hasOutgoingDrawOffer
                       ? "🤝 Offer Sent"
@@ -1677,7 +1779,7 @@ export default function OnlineGameClient({
                       isResigning ||
                       isProcessingDraw
                     }
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-red-400/60 hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-red-400/60 hover:bg-white/10 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     🏳️ Resign
                   </button>
@@ -1685,7 +1787,7 @@ export default function OnlineGameClient({
                   <button
                     type="button"
                     onClick={handleFlipBoard}
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-yellow-400/50 hover:bg-slate-700 active:scale-[0.98]"
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-yellow-400/55 hover:bg-white/10 active:scale-[0.98]"
                   >
                     🔄 Flip Board
                   </button>
@@ -1733,7 +1835,7 @@ export default function OnlineGameClient({
             )}
 
             {isGameOver && (
-              <div className="w-full rounded-2xl border border-yellow-400/30 bg-yellow-400/10 p-2.5">
+              <div className="w-full rounded-2xl border border-yellow-400/35 bg-[linear-gradient(145deg,rgba(35,27,12,0.90),rgba(5,8,13,0.88))] p-2.5 shadow-[0_14px_36px_rgba(0,0,0,0.28)] backdrop-blur-md">
                 <div className="mb-2 flex items-center justify-between gap-3">
                   <p className="text-xs font-bold uppercase tracking-[0.22em] text-yellow-400">
                     Post-Game Actions
@@ -1802,6 +1904,200 @@ export default function OnlineGameClient({
       </section>
         </main>
       </div>
-    </>
+      <style jsx global>{`
+        .arena-nav-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
+        }
+
+        .arena-nav-scrollbar:hover {
+          scrollbar-color: rgba(245, 158, 11, 0.42) transparent;
+        }
+
+        .arena-nav-scrollbar::-webkit-scrollbar {
+          width: 5px;
+        }
+
+        .arena-nav-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+
+        .arena-nav-scrollbar::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 999px;
+        }
+
+        .arena-nav-scrollbar:hover::-webkit-scrollbar-thumb {
+          background: rgba(245, 158, 11, 0.42);
+        }
+
+        .arena-nav-scrollbar:hover::-webkit-scrollbar-thumb:hover {
+          background: rgba(250, 204, 21, 0.68);
+        }
+      `}</style>
+
+    
+      <style jsx global>{`
+        .roman-scene-layer {
+          left: 50%;
+          top: 50%;
+          width: max(100vw, calc(100vh * 1672 / 941));
+          height: max(100vh, calc(100vw * 941 / 1672));
+          transform: translate(-50%, -50%);
+          overflow: hidden;
+        }
+
+        .roman-fire-effects {
+          overflow: hidden;
+        }
+
+        .roman-real-fire {
+          position: absolute;
+          display: block;
+          object-fit: contain;
+          opacity: 0.82;
+          filter: saturate(1.04) brightness(0.96);
+          transform-origin: 50% 100%;
+        }
+
+        .roman-real-fire-test {
+          left: 14.8%;
+          top: 37%;
+          width: 12.5%;
+          height: 29%;
+        }
+
+        .roman-real-fire-high-right {
+          left: 94.2%;
+          top: 41.5%;
+          width: 8%;
+          height: 21%;
+          opacity: 0.9;
+        }
+
+        .roman-fire-glow {
+          position: absolute;
+          display: block;
+          border-radius: 9999px;
+          background: radial-gradient(ellipse at center, rgba(255,191,73,0.20) 0%, rgba(245,118,22,0.11) 34%, rgba(180,58,10,0.045) 58%, transparent 76%);
+          filter: blur(12px);
+          mix-blend-mode: screen;
+          transform-origin: 50% 100%;
+          animation: roman-fire-flicker 3.4s ease-in-out infinite;
+          will-change: opacity, transform;
+        }
+
+        .roman-fire-glow-left {
+          left: 16%;
+          top: 46%;
+          width: 13%;
+          height: 28%;
+          animation-delay: -1.1s;
+        }
+
+        .roman-fire-glow-center {
+          left: 30%;
+          top: 51%;
+          width: 12%;
+          height: 25%;
+          animation-duration: 2.9s;
+          animation-delay: -2.2s;
+        }
+
+        .roman-fire-glow-right {
+          right: 3%;
+          top: 46%;
+          width: 12%;
+          height: 27%;
+          animation-duration: 3.8s;
+          animation-delay: -0.7s;
+        }
+
+        .roman-fire-effects-high .roman-fire-glow {
+          background: radial-gradient(ellipse at center, rgba(255,198,76,0.26) 0%, rgba(247,117,18,0.14) 34%, rgba(180,58,10,0.055) 58%, transparent 76%);
+        }
+
+        .roman-ember {
+          position: absolute;
+          display: block;
+          width: 3px;
+          height: 3px;
+          border-radius: 9999px;
+          background: rgba(255,193,77,0.82);
+          box-shadow: 0 0 7px rgba(251,146,60,0.62);
+          opacity: 0;
+          animation: roman-ember-rise 5.6s linear infinite;
+          will-change: opacity, transform;
+        }
+
+        .roman-ember-1 { left: 20%; top: 68%; animation-delay: -0.4s; }
+        .roman-ember-2 { left: 23%; top: 66%; animation-delay: -3.1s; animation-duration: 6.3s; }
+        .roman-ember-3 { left: 34%; top: 70%; animation-delay: -1.8s; animation-duration: 5.1s; }
+        .roman-ember-4 { left: 37%; top: 67%; animation-delay: -4.4s; animation-duration: 6.8s; }
+        .roman-ember-5 { right: 7%; top: 68%; animation-delay: -2.6s; animation-duration: 5.9s; }
+        .roman-ember-6 { right: 10%; top: 65%; animation-delay: -5s; animation-duration: 7.1s; }
+
+        @keyframes roman-fire-flicker {
+          0%, 100% { opacity: 0.52; transform: translate3d(0,0,0) scale(0.96,1); }
+          24% { opacity: 0.76; transform: translate3d(1px,-2px,0) scale(1.04,1.07); }
+          47% { opacity: 0.58; transform: translate3d(-1px,1px,0) scale(0.98,0.96); }
+          72% { opacity: 0.82; transform: translate3d(1px,-1px,0) scale(1.06,1.04); }
+        }
+
+        @keyframes roman-ember-rise {
+          0% { opacity: 0; transform: translate3d(0,0,0) scale(0.7); }
+          12% { opacity: 0.7; }
+          60% { opacity: 0.42; }
+          100% { opacity: 0; transform: translate3d(10px,-90px,0) scale(0.25); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+          .roman-fire-glow, .roman-ember { animation: none !important; }
+          .roman-fire-glow { opacity: 0.58; }
+          .roman-ember { display: none; }
+        }
+
+        .roman-fire-effects-high .roman-fire-glow {
+          background: radial-gradient(ellipse at center, rgba(255,215,105,0.48) 0%, rgba(255,139,31,0.30) 30%, rgba(220,72,10,0.13) 56%, transparent 78%);
+          filter: blur(9px);
+          animation-duration: 1.55s;
+        }
+
+        .roman-fire-wash {
+          position: absolute;
+          display: block;
+          width: 34%;
+          height: 52%;
+          border-radius: 9999px;
+          background: radial-gradient(ellipse at center, rgba(251,146,60,0.16) 0%, rgba(245,101,20,0.08) 42%, transparent 72%);
+          filter: blur(24px);
+          mix-blend-mode: screen;
+          animation: roman-fire-wash-pulse 2.4s ease-in-out infinite;
+        }
+
+        .roman-fire-wash-left { left: 8%; top: 35%; animation-delay: -0.8s; }
+        .roman-fire-wash-right { right: -5%; top: 34%; animation-delay: -1.7s; }
+
+        .roman-fire-effects-high .roman-ember {
+          width: 3px;
+          height: 3px;
+          background: rgba(255,205,92,0.96);
+          box-shadow: 0 0 9px rgba(251,146,60,0.82);
+          animation-duration: 4.5s;
+        }
+
+        .roman-ember-7 { right: 9%; top: 67%; animation-delay: -0.9s; }
+        .roman-ember-8 { right: 5%; top: 73%; animation-delay: -3.5s; animation-duration: 5.9s; }
+        .roman-ember-9 { left: 29%; top: 69%; animation-delay: -4.8s; animation-duration: 6.2s; }
+        .roman-ember-10 { right: 17%; top: 70%; animation-delay: -1.9s; animation-duration: 5.1s; }
+
+        @keyframes roman-fire-wash-pulse {
+          0%, 100% { opacity: 0.28; transform: scale(0.96); }
+          35% { opacity: 0.68; transform: scale(1.08); }
+          66% { opacity: 0.42; transform: scale(1.01); }
+        }
+
+      `}</style>
+</>
   );
 }
