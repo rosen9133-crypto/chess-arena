@@ -501,8 +501,23 @@ export default async function DashboardPage() {
                     href="/arenas"
                     className={`group relative min-h-[118px] overflow-hidden rounded-md border border-slate-700/80 bg-gradient-to-br ${gradient} p-4 transition hover:-translate-y-0.5 hover:border-amber-400/50`}
                   >
-                    <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full border border-white/10 bg-white/5" />
-                    <div className="absolute bottom-4 right-5 text-6xl text-white/10">♛</div>
+                    {name === "Roman Colosseum" ? (
+                      <>
+                        <Image
+                          src="/arenas/roman-colosseum/roman-colosseum.png"
+                          alt=""
+                          fill
+                          sizes="(min-width: 1280px) 25vw, (min-width: 640px) 50vw, 100vw"
+                          className="object-cover object-center transition duration-300 group-hover:scale-[1.02]"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/10" />
+                      </>
+                    ) : (
+                      <>
+                        <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full border border-white/10 bg-white/5" />
+                        <div className="absolute bottom-4 right-5 text-6xl text-white/10">♛</div>
+                      </>
+                    )}
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4 pt-10">
                       <p className="font-black uppercase text-white">{name}</p>
                       <p className="mt-0.5 text-xs text-slate-300">{subtitle}</p>
