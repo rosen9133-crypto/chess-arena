@@ -466,6 +466,117 @@ export default function OnlineGameClient({
   const activeArena = ARENAS[activeArenaId];
   const [arenaEffects, setArenaEffects] =
     useState<ArenaEffectsLevel>(DEFAULT_ARENA_EFFECTS);
+  const [romanBoardStyle, setRomanBoardStyle] = useState<"classic" | "roman">(
+    "roman",
+  );
+  const [isArenaCustomizeOpen, setIsArenaCustomizeOpen] = useState(false);
+  const [draftArenaEffects, setDraftArenaEffects] =
+    useState<ArenaEffectsLevel>(arenaEffects);
+  const [draftRomanBoardStyle, setDraftRomanBoardStyle] =
+    useState<"classic" | "roman">(romanBoardStyle);
+
+  function openArenaCustomize() {
+    setDraftArenaEffects(arenaEffects);
+    setDraftRomanBoardStyle(romanBoardStyle);
+    setIsArenaCustomizeOpen(true);
+  }
+
+  function cancelArenaCustomize() {
+    setIsArenaCustomizeOpen(false);
+  }
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadArenaPreferences() {
+      try {
+        const response = await fetch("/api/arena-preferences", {
+          method: "GET",
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as {
+          romanBoardStyle?: string;
+          romanArenaEffects?: string;
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          data.romanBoardStyle === "classic" ||
+          data.romanBoardStyle === "roman"
+        ) {
+          setRomanBoardStyle(data.romanBoardStyle);
+        }
+
+        if (
+          data.romanArenaEffects === "off" ||
+          data.romanArenaEffects === "low" ||
+          data.romanArenaEffects === "high"
+        ) {
+          setArenaEffects(data.romanArenaEffects);
+        }
+      } catch (error) {
+        console.error("ARENA PREFERENCES LOAD ERROR:", error);
+      }
+    }
+
+    void loadArenaPreferences();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function applyArenaCustomize() {
+    try {
+      const response = await fetch("/api/arena-preferences", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          romanBoardStyle: draftRomanBoardStyle,
+          romanArenaEffects: draftArenaEffects,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error("ARENA PREFERENCES SAVE FAILED");
+        return;
+      }
+
+      const data = (await response.json()) as {
+        romanBoardStyle?: string;
+        romanArenaEffects?: string;
+      };
+
+      if (
+        data.romanBoardStyle === "classic" ||
+        data.romanBoardStyle === "roman"
+      ) {
+        setRomanBoardStyle(data.romanBoardStyle);
+      }
+
+      if (
+        data.romanArenaEffects === "off" ||
+        data.romanArenaEffects === "low" ||
+        data.romanArenaEffects === "high"
+      ) {
+        setArenaEffects(data.romanArenaEffects);
+      }
+
+      setIsArenaCustomizeOpen(false);
+    } catch (error) {
+      console.error("ARENA PREFERENCES SAVE ERROR:", error);
+    }
+  }
 
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
   const leftGameColumnRef = useRef<HTMLDivElement | null>(null);
@@ -1602,25 +1713,14 @@ export default function OnlineGameClient({
         }`}
       >
         {activeArena.id === "roman-colosseum" && (
-          <div className="relative z-20 mx-auto flex w-fit items-center gap-1 rounded-full border border-amber-200/20 bg-black/55 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
-            <span className="px-2 text-[9px] font-black uppercase tracking-[0.16em] text-amber-100/75">
-              Arena Effects
-            </span>
-            {(["off", "low", "high"] as ArenaEffectsLevel[]).map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => setArenaEffects(level)}
-                aria-pressed={arenaEffects === level}
-                className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] transition ${
-                  arenaEffects === level
-                    ? "bg-amber-300 text-slate-950 shadow-[0_0_14px_rgba(251,191,36,0.22)]"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {level}
-              </button>
-            ))}
+          <div className="relative z-20 mx-auto flex w-fit items-center">
+            <button
+              type="button"
+              onClick={openArenaCustomize}
+              className="rounded-full border border-amber-200/25 bg-black/55 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-amber-100 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md transition hover:border-amber-300/50 hover:bg-black/70"
+            >
+              Customize Arena
+            </button>
           </div>
         )}
 
@@ -1669,14 +1769,16 @@ export default function OnlineGameClient({
               boardOrientation={boardOrientation}
               customLightSquareStyle={{
                 backgroundColor:
-                  activeArena.id === "roman-colosseum"
+                  activeArena.id === "roman-colosseum" &&
+                  romanBoardStyle === "roman"
                     ? "#D8C39A"
                     : "#E8EDF2",
                 backgroundImage: "none",
               }}
               customDarkSquareStyle={{
                 backgroundColor:
-                  activeArena.id === "roman-colosseum"
+                  activeArena.id === "roman-colosseum" &&
+                  romanBoardStyle === "roman"
                     ? "#76563A"
                     : "#4F6F8F",
                 backgroundImage: "none",
@@ -1904,6 +2006,108 @@ export default function OnlineGameClient({
       </section>
         </main>
       </div>
+      {isArenaCustomizeOpen && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="arena-customize-title"
+        >
+          <div className="w-full max-w-[560px] overflow-hidden rounded-3xl border border-amber-200/20 bg-[linear-gradient(180deg,rgba(24,20,16,0.98),rgba(8,10,14,0.98))] shadow-[0_30px_100px_rgba(0,0,0,0.65)]">
+            <div className="border-b border-amber-200/10 px-6 py-5">
+              <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-300/75">
+                Roman Colosseum
+              </p>
+              <h2
+                id="arena-customize-title"
+                className="mt-1 text-xl font-black text-white"
+              >
+                Customize Arena
+              </h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Choose the board style and atmosphere for your next game.
+              </p>
+            </div>
+
+            <div className="space-y-6 px-6 py-6">
+              <div>
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-amber-100/80">
+                  Board Style
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(["classic", "roman"] as const).map((style) => {
+                    const selected = draftRomanBoardStyle === style;
+                    return (
+                      <button
+                        key={style}
+                        type="button"
+                        onClick={() => setDraftRomanBoardStyle(style)}
+                        className={`rounded-2xl border p-4 text-left transition ${
+                          selected
+                            ? "border-amber-300/70 bg-amber-300/10 shadow-[0_0_24px_rgba(251,191,36,0.10)]"
+                            : "border-white/10 bg-white/[0.03] hover:border-amber-200/30"
+                        }`}
+                      >
+                        <span className="block text-sm font-black text-white">
+                          {style === "classic" ? "Classic" : "Roman Arena"}
+                        </span>
+                        <span className="mt-1 block text-xs text-slate-400">
+                          {style === "classic"
+                            ? "Classic Chess Arena board."
+                            : "Warm marble and stone colors."}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div>
+                <p className="mb-3 text-xs font-black uppercase tracking-[0.16em] text-amber-100/80">
+                  Arena Effects
+                </p>
+                <div className="grid grid-cols-3 gap-2">
+                  {(["off", "low", "high"] as ArenaEffectsLevel[]).map((level) => (
+                    <button
+                      key={level}
+                      type="button"
+                      onClick={() => setDraftArenaEffects(level)}
+                      className={`rounded-xl border px-3 py-3 text-xs font-black uppercase tracking-[0.12em] transition ${
+                        draftArenaEffects === level
+                          ? "border-amber-300/70 bg-amber-300 text-slate-950"
+                          : "border-white/10 bg-white/[0.03] text-slate-300 hover:border-amber-200/30"
+                      }`}
+                    >
+                      {level}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-xs text-slate-500">
+                  Off removes animated fire. Low keeps the main flame. High adds the full Roman atmosphere.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 border-t border-white/10 px-6 py-4">
+              <button
+                type="button"
+                onClick={cancelArenaCustomize}
+                className="rounded-xl border border-white/10 px-4 py-2 text-sm font-bold text-slate-300 transition hover:bg-white/5"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyArenaCustomize}
+                className="rounded-xl bg-amber-300 px-5 py-2 text-sm font-black text-slate-950 transition hover:bg-amber-200"
+              >
+                Apply
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx global>{`
         .arena-nav-scrollbar {
           scrollbar-width: thin;
