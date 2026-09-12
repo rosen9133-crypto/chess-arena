@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import ArenaCustomizeButton from "./ArenaCustomizeButton";
+import ArenaActivateButton from "./ArenaActivateButton";
 import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
@@ -58,6 +59,7 @@ export default async function ArenasPage() {
     select: {
       username: true,
       rapidRating: true,
+      activeArena: true,
       romanBoardStyle: true,
       romanArenaEffects: true,
     },
@@ -199,6 +201,10 @@ export default async function ArenasPage() {
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-3">
+                    <ArenaActivateButton
+                      arenaId="roman-colosseum"
+                      isActive={user.activeArena === "roman-colosseum"}
+                    />
                     <ArenaCustomizeButton
                       initialBoardStyle={user.romanBoardStyle === "classic" ? "classic" : "roman"}
                       initialEffects={

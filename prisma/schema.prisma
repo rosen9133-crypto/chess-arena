@@ -71,6 +71,7 @@ model User {
   losses Int @default(0)
   draws  Int @default(0)
 
+  activeArena       String @default("classic")
   romanBoardStyle   String @default("roman")
   romanArenaEffects String @default("high")
 

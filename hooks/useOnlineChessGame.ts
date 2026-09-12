@@ -80,6 +80,7 @@ type OnlineGameResponse = {
     whiteTimeMs: number;
     blackTimeMs: number;
     clockStartedAt: string | null;
+    incrementSeconds?: number;
     drawOfferBy?: OnlineDrawOfferBy;
     drawOfferedAt?: string | null;
     rematchOfferBy?: OnlineRematchOfferBy;
@@ -192,6 +193,9 @@ export function useOnlineChessGame({
   const [clockNowMs, setClockNowMs] =
     useState(() => Date.now());
 
+  const [clockAnchorMs, setClockAnchorMs] =
+    useState<number | null>(null);
+
   const [serverActiveClock, setServerActiveClock] =
     useState<ChessColor | null>(null);
 
@@ -249,6 +253,12 @@ export function useOnlineChessGame({
   });
   const clockTickSecondRef = useRef<string | null>(null);
   const clockTimeoutPlayedRef = useRef(false);
+  const displayedWhiteTimeMsRef = useRef(0);
+  const displayedBlackTimeMsRef = useRef(0);
+  const activeClockRef = useRef<ChessColor | null>(null);
+  const gameStateRequestIdRef = useRef(0);
+  const latestAppliedGameStateRequestIdRef = useRef(0);
+  const incrementMsRef = useRef(0);
 
   useEffect(() => {
     initializeOnlineGameSounds();
@@ -283,31 +293,80 @@ export function useOnlineChessGame({
     isGameOver ? null : serverActiveClock;
 
   const clockElapsedMs =
-    clockStartedAt && activeClock
+    clockAnchorMs !== null && activeClock
       ? Math.max(
           0,
-          clockNowMs - new Date(clockStartedAt).getTime(),
+          clockNowMs - clockAnchorMs,
         )
       : 0;
 
-  const displayedWhiteTimeMs = Math.max(
+  const rawDisplayedWhiteTimeMs = Math.max(
     0,
     whiteTimeMs -
       (activeClock === "w" ? clockElapsedMs : 0),
   );
 
-  const displayedBlackTimeMs = Math.max(
+  const rawDisplayedBlackTimeMs = Math.max(
     0,
     blackTimeMs -
       (activeClock === "b" ? clockElapsedMs : 0),
   );
 
+  const previousDisplayedWhiteSecond = Math.max(
+    0,
+    Math.ceil(displayedWhiteTimeMsRef.current / 1000),
+  );
+  const previousDisplayedBlackSecond = Math.max(
+    0,
+    Math.ceil(displayedBlackTimeMsRef.current / 1000),
+  );
+  const rawDisplayedWhiteSecond = Math.max(
+    0,
+    Math.ceil(rawDisplayedWhiteTimeMs / 1000),
+  );
+  const rawDisplayedBlackSecond = Math.max(
+    0,
+    Math.ceil(rawDisplayedBlackTimeMs / 1000),
+  );
+
+  const hasPreviousWhiteClock =
+    displayedWhiteTimeMsRef.current > 0;
+
+  const hasPreviousBlackClock =
+    displayedBlackTimeMsRef.current > 0;
+
+  const displayedWhiteTimeMs =
+    activeClock === "w" &&
+    hasPreviousWhiteClock &&
+    rawDisplayedWhiteSecond > previousDisplayedWhiteSecond
+      ? Math.min(
+          rawDisplayedWhiteTimeMs,
+          displayedWhiteTimeMsRef.current,
+        )
+      : rawDisplayedWhiteTimeMs;
+
+  const displayedBlackTimeMs =
+    activeClock === "b" &&
+    hasPreviousBlackClock &&
+    rawDisplayedBlackSecond > previousDisplayedBlackSecond
+      ? Math.min(
+          rawDisplayedBlackTimeMs,
+          displayedBlackTimeMsRef.current,
+        )
+      : rawDisplayedBlackTimeMs;
+
+  displayedWhiteTimeMsRef.current = displayedWhiteTimeMs;
+  displayedBlackTimeMsRef.current = displayedBlackTimeMs;
+  activeClockRef.current = activeClock;
+
   const whiteTime = displayedWhiteTimeMs / 1000;
   const blackTime = displayedBlackTimeMs / 1000;
 
+
+
   const isClockRunning =
     !isGameOver &&
-    clockStartedAt !== null &&
+    clockAnchorMs !== null &&
     displayedWhiteTimeMs > 0 &&
     displayedBlackTimeMs > 0;
 
@@ -475,7 +534,7 @@ export function useOnlineChessGame({
   );
 
   useEffect(() => {
-    if (!clockStartedAt || isGameOver) {
+    if (clockAnchorMs === null || isGameOver) {
       return;
     }
 
@@ -488,7 +547,7 @@ export function useOnlineChessGame({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [clockStartedAt, isGameOver]);
+  }, [clockAnchorMs, isGameOver]);
 
   const applyServerClock = useCallback(
     (
@@ -497,11 +556,75 @@ export function useOnlineChessGame({
       serverClockStartedAt: string | null,
       serverTurn: ChessColor,
     ) => {
-      setWhiteTimeMs(serverWhiteTimeMs);
-      setBlackTimeMs(serverBlackTimeMs);
+      const now = Date.now();
+      const previousActiveClock = activeClockRef.current;
+      const currentWhiteTimeMs =
+        displayedWhiteTimeMsRef.current;
+      const currentBlackTimeMs =
+        displayedBlackTimeMsRef.current;
+      const incrementMs = incrementMsRef.current;
+
+      const hasCurrentWhiteTime = currentWhiteTimeMs > 0;
+      const hasCurrentBlackTime = currentBlackTimeMs > 0;
+
+      let nextWhiteTimeMs = Math.max(0, serverWhiteTimeMs);
+      let nextBlackTimeMs = Math.max(0, serverBlackTimeMs);
+
+      if (hasCurrentWhiteTime) {
+        if (serverTurn === "w") {
+          // The newly/currently active clock must never move upward.
+          nextWhiteTimeMs = Math.min(
+            nextWhiteTimeMs,
+            currentWhiteTimeMs,
+          );
+        } else if (previousActiveClock === serverTurn) {
+          // White was already inactive; keep its frozen local value.
+          nextWhiteTimeMs = currentWhiteTimeMs;
+        } else if (previousActiveClock === "w") {
+          // White just moved. Only a configured increment is allowed
+          // to increase its visible clock.
+          nextWhiteTimeMs = Math.min(
+            nextWhiteTimeMs,
+            currentWhiteTimeMs + incrementMs,
+          );
+        }
+      }
+
+      if (hasCurrentBlackTime) {
+        if (serverTurn === "b") {
+          // The newly/currently active clock must never move upward.
+          nextBlackTimeMs = Math.min(
+            nextBlackTimeMs,
+            currentBlackTimeMs,
+          );
+        } else if (previousActiveClock === serverTurn) {
+          // Black was already inactive; keep its frozen local value.
+          nextBlackTimeMs = currentBlackTimeMs;
+        } else if (previousActiveClock === "b") {
+          // Black just moved. Only a configured increment is allowed
+          // to increase its visible clock.
+          nextBlackTimeMs = Math.min(
+            nextBlackTimeMs,
+            currentBlackTimeMs + incrementMs,
+          );
+        }
+      }
+
+      setWhiteTimeMs(nextWhiteTimeMs);
+      setBlackTimeMs(nextBlackTimeMs);
       setClockStartedAt(serverClockStartedAt);
       setServerActiveClock(serverTurn);
-      setClockNowMs(Date.now());
+      setClockAnchorMs(
+        serverClockStartedAt ? now : null,
+      );
+      setClockNowMs(now);
+
+      displayedWhiteTimeMsRef.current =
+        nextWhiteTimeMs;
+      displayedBlackTimeMsRef.current =
+        nextBlackTimeMs;
+      activeClockRef.current =
+        serverClockStartedAt ? serverTurn : null;
     },
     [],
   );
@@ -576,6 +699,8 @@ export function useOnlineChessGame({
         return;
       }
 
+      const requestId = ++gameStateRequestIdRef.current;
+
       try {
         const response = await fetch(
           `/api/online-move?gameId=${encodeURIComponent(
@@ -600,6 +725,32 @@ export function useOnlineChessGame({
               "Could not load game.",
           );
         }
+
+        if (
+          requestId <
+          latestAppliedGameStateRequestIdRef.current
+        ) {
+          return;
+        }
+
+        const incomingGame =
+          createChessFromServerState(
+            data.game.fen,
+            data.game.pgn,
+          );
+
+        // Ignore an older GET response that started before the local
+        // optimistic move and returned while that move is still being sent.
+        if (
+          isSendingMoveRef.current &&
+          incomingGame.history().length <
+            gameRef.current.history().length
+        ) {
+          return;
+        }
+
+        latestAppliedGameStateRequestIdRef.current =
+          requestId;
 
         applyServerGame(
           data.game.fen,
@@ -634,10 +785,17 @@ export function useOnlineChessGame({
         }
 
         const authoritativeGame =
-          createChessFromServerState(
-            data.game.fen,
-            data.game.pgn,
+          incomingGame;
+
+        if (
+          typeof data.game.incrementSeconds === "number" &&
+          Number.isFinite(data.game.incrementSeconds)
+        ) {
+          incrementMsRef.current = Math.max(
+            0,
+            data.game.incrementSeconds * 1000,
           );
+        }
 
         applyServerClock(
           data.game.whiteTimeMs,
@@ -737,7 +895,7 @@ export function useOnlineChessGame({
     }
 
     if (
-      displayedPlayerSecond <= 11 &&
+      displayedPlayerSecond <= 10 &&
       displayedPlayerSecond > 0
     ) {
       if (clockTickSecondRef.current !== playerColor) {
@@ -770,7 +928,7 @@ export function useOnlineChessGame({
   useEffect(() => {
     if (
       isGameOver ||
-      !clockStartedAt ||
+      clockAnchorMs === null ||
       !activeClock ||
       timeoutRefreshRequestedRef.current
     ) {
@@ -790,7 +948,7 @@ export function useOnlineChessGame({
     void fetchGameState();
   }, [
     activeClock,
-    clockStartedAt,
+    clockAnchorMs,
     displayedBlackTimeMs,
     displayedWhiteTimeMs,
     fetchGameState,
@@ -891,6 +1049,26 @@ export function useOnlineChessGame({
     gameRef.current = optimisticGame;
     setGame(optimisticGame);
 
+    // Hand the clock to the opponent immediately when the local move
+    // is shown. This prevents the mover's clock from continuing to run
+    // during the POST round-trip and then jumping back on confirmation.
+    const optimisticClockNow = Date.now();
+    const optimisticWhiteTimeMs =
+      displayedWhiteTimeMsRef.current;
+    const optimisticBlackTimeMs =
+      displayedBlackTimeMsRef.current;
+    const optimisticActiveClock =
+      optimisticGame.turn();
+
+    setWhiteTimeMs(optimisticWhiteTimeMs);
+    setBlackTimeMs(optimisticBlackTimeMs);
+    setServerActiveClock(optimisticActiveClock);
+    setClockAnchorMs(optimisticClockNow);
+    setClockNowMs(optimisticClockNow);
+
+    activeClockRef.current =
+      optimisticActiveClock;
+
     const optimisticHistory =
       optimisticGame.history({ verbose: true }) as Move[];
     const optimisticMoveIndex = optimisticHistory.length;
@@ -959,8 +1137,17 @@ export function useOnlineChessGame({
         );
       }
 
-      gameRef.current = updatedGame;
-      setGame(updatedGame);
+      const optimisticPositionMatchesServer =
+        optimisticGame.fen() === updatedGame.fen() &&
+        optimisticGame.pgn() === updatedGame.pgn();
+
+      // If the server confirms exactly the optimistic move already shown
+      // on the board, keep the existing Chess instance. Replacing it with
+      // an equivalent instance can cause a brief visual snap-back.
+      if (!optimisticPositionMatchesServer) {
+        gameRef.current = updatedGame;
+        setGame(updatedGame);
+      }
 
       setStatus(data.game.status);
       setResult(data.game.result);
