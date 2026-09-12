@@ -459,13 +459,72 @@ export default function OnlineGameClient({
     router.push(href);
   }
 
-  // Arena foundation:
-  // The game remains on Classic for now. Later steps can switch this ID
-  // from the player's owned/selected Arena without touching chess logic.
-  const activeArenaId: ArenaId = "roman-colosseum";
+  const [activeArenaId, setActiveArenaId] =
+    useState<ArenaId>(DEFAULT_ARENA_ID);
   const activeArena = ARENAS[activeArenaId];
+  const [romanBoardStyle, setRomanBoardStyle] =
+    useState<"classic" | "roman">("roman");
   const [arenaEffects, setArenaEffects] =
     useState<ArenaEffectsLevel>(DEFAULT_ARENA_EFFECTS);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadArenaPreferences() {
+      try {
+        const response = await fetch("/api/arena-preferences", {
+          cache: "no-store",
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as {
+          activeArena?: string;
+          romanBoardStyle?: string;
+          romanArenaEffects?: string;
+        };
+
+        if (cancelled) {
+          return;
+        }
+
+        if (
+          data.activeArena &&
+          data.activeArena in ARENAS
+        ) {
+          setActiveArenaId(data.activeArena as ArenaId);
+        }
+
+        if (
+          data.romanBoardStyle === "classic" ||
+          data.romanBoardStyle === "roman"
+        ) {
+          setRomanBoardStyle(data.romanBoardStyle);
+        }
+
+        if (
+          data.romanArenaEffects === "off" ||
+          data.romanArenaEffects === "low" ||
+          data.romanArenaEffects === "high"
+        ) {
+          setArenaEffects(data.romanArenaEffects);
+        }
+      } catch (error) {
+        console.error(
+          "ARENA PREFERENCES REQUEST ERROR:",
+          error,
+        );
+      }
+    }
+
+    void loadArenaPreferences();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const boardAreaRef = useRef<HTMLDivElement | null>(null);
   const leftGameColumnRef = useRef<HTMLDivElement | null>(null);
@@ -1648,14 +1707,16 @@ export default function OnlineGameClient({
               boardOrientation={boardOrientation}
               customLightSquareStyle={{
                 backgroundColor:
-                  activeArena.id === "roman-colosseum"
+                  activeArena.id === "roman-colosseum" &&
+                  romanBoardStyle === "roman"
                     ? "#D8C39A"
                     : "#E8EDF2",
                 backgroundImage: "none",
               }}
               customDarkSquareStyle={{
                 backgroundColor:
-                  activeArena.id === "roman-colosseum"
+                  activeArena.id === "roman-colosseum" &&
+                  romanBoardStyle === "roman"
                     ? "#76563A"
                     : "#4F6F8F",
                 backgroundImage: "none",
