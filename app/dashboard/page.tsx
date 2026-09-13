@@ -9,53 +9,6 @@ import { prisma } from "@/lib/prisma";
 type GameResult = "WHITE_WIN" | "BLACK_WIN" | "DRAW" | null;
 type GameEndReason = "CHECKMATE" | "DRAW" | "RESIGNATION" | "TIMEOUT" | null;
 
-function getResultLabel(result: GameResult, isWhite: boolean) {
-  if (result === null) {
-    return {
-      label: "Finished",
-      className: "text-slate-300",
-    };
-  }
-
-  if (result === "DRAW") {
-    return {
-      label: "Draw",
-      className: "text-sky-300",
-    };
-  }
-
-  const didWin =
-    (result === "WHITE_WIN" && isWhite) ||
-    (result === "BLACK_WIN" && !isWhite);
-
-  if (didWin) {
-    return {
-      label: "Victory",
-      className: "text-emerald-400",
-    };
-  }
-
-  return {
-    label: "Defeat",
-    className: "text-rose-400",
-  };
-}
-
-function getEndReasonLabel(endReason: GameEndReason) {
-  switch (endReason) {
-    case "CHECKMATE":
-      return "Checkmate";
-    case "RESIGNATION":
-      return "Resignation";
-    case "TIMEOUT":
-      return "Timeout";
-    case "DRAW":
-      return "Draw";
-    default:
-      return "Finished";
-  }
-}
-
 function formatTimeControl(initialTimeSeconds: number, incrementSeconds: number) {
   const initialTime =
     initialTimeSeconds >= 60 && initialTimeSeconds % 60 === 0
@@ -128,23 +81,14 @@ export default async function DashboardPage() {
       OR: [{ whitePlayerId: user.id }, { blackPlayerId: user.id }],
     },
     orderBy: [{ endedAt: "desc" }, { startedAt: "desc" }],
-    take: 10,
+    take: 1,
     select: {
       id: true,
       whitePlayerId: true,
       blackPlayerId: true,
-      result: true,
-      endReason: true,
       timeControl: true,
-      rated: true,
       initialTimeSeconds: true,
       incrementSeconds: true,
-      whiteRatingBefore: true,
-      whiteRatingAfter: true,
-      blackRatingBefore: true,
-      blackRatingAfter: true,
-      startedAt: true,
-      endedAt: true,
       whitePlayer: {
         select: {
           username: true,
@@ -400,7 +344,7 @@ export default async function DashboardPage() {
 </aside>
 
         <div className="min-w-0 flex-1 bg-[#070c13]">
-          <div className="mx-auto w-full max-w-[1800px] px-2 pb-8 pt-0 sm:px-3 xl:px-[22px]">
+          <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col px-2 pb-0 pt-0 sm:px-3 xl:px-[22px]">
             {/* Reference-style cinematic top area:
                 compact utility controls, wide Hero, and a dedicated motto zone. */}
             <section className="relative h-[clamp(360px,46vh,430px)] overflow-hidden border-x border-b border-slate-800/80 bg-[#050a10]">
@@ -587,7 +531,7 @@ export default async function DashboardPage() {
             </section>
 
             {/* Cinematic separator from the reference, before the existing real Player Hub data. */}
-            <section className="relative mt-2 min-h-[96px] overflow-hidden rounded-lg border border-slate-800/90 bg-gradient-to-r from-[#090e16] via-[#111827] to-[#080d16] px-8 py-6">
+            <section className="relative mt-2 flex min-h-[96px] flex-1 items-center overflow-hidden rounded-t-lg border border-slate-800/90 bg-gradient-to-r from-[#090e16] via-[#111827] to-[#080d16] px-8 py-6">
               <div className="absolute right-[18%] top-1/2 -translate-y-1/2 text-[100px] leading-none text-amber-400/10">♚</div>
               <p className="relative z-10 max-w-md font-serif text-sm uppercase leading-6 tracking-[0.25em] text-slate-200">
                 Legends aren't born.<br />
@@ -600,201 +544,6 @@ export default async function DashboardPage() {
               </div>
             </section>
 
-        <section className="mt-5 grid gap-5 xl:grid-cols-[1.05fr_1.95fr]">
-          <div className="rounded-2xl border border-slate-700/80 bg-slate-900/75 p-6 shadow-2xl shadow-black/20">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
-                  Player
-                </p>
-                <h2 className="mt-2 text-2xl font-black">{user.username}</h2>
-              </div>
-
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-amber-400/30 bg-amber-400/10 text-2xl">
-                ♞
-              </div>
-            </div>
-
-            <div className="mt-6 grid grid-cols-3 gap-3 border-t border-slate-800 pt-5">
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Games
-                </p>
-                <p className="mt-1 text-xl font-black">{totalGames}</p>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Wins
-                </p>
-                <p className="mt-1 text-xl font-black text-emerald-400">
-                  {user.wins}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                  Win rate
-                </p>
-                <p className="mt-1 text-xl font-black text-amber-400">
-                  {winRate}%
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div className="rounded-2xl border border-slate-700/80 bg-slate-900/75 p-5 shadow-xl shadow-black/15">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Bullet
-                </p>
-                <span className="text-xl">⚡</span>
-              </div>
-              <p className="mt-4 text-4xl font-black text-white">
-                {Math.round(user.bulletRating)}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">Fast chess rating</p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-400/30 bg-gradient-to-b from-amber-400/10 to-slate-900/80 p-5 shadow-xl shadow-black/15">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-400">
-                  Blitz
-                </p>
-                <span className="text-xl">🔥</span>
-              </div>
-              <p className="mt-4 text-4xl font-black text-white">
-                {Math.round(user.blitzRating)}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">Blitz chess rating</p>
-            </div>
-
-            <div className="rounded-2xl border border-slate-700/80 bg-slate-900/75 p-5 shadow-xl shadow-black/15">
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
-                  Rapid
-                </p>
-                <span className="text-xl">⏱️</span>
-              </div>
-              <p className="mt-4 text-4xl font-black text-white">
-                {Math.round(user.rapidRating)}
-              </p>
-              <p className="mt-1 text-sm text-slate-500">Rapid chess rating</p>
-            </div>
-          </div>
-        </section>
-
-        <section className="mt-6 overflow-hidden rounded-2xl border border-slate-700/80 bg-slate-900/75 shadow-2xl shadow-black/20">
-          <div className="flex flex-col gap-3 border-b border-slate-700/80 px-5 py-5 sm:flex-row sm:items-center sm:justify-between sm:px-6">
-            <div>
-              <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-400">
-                Match Archive
-              </p>
-              <h3 className="mt-1 text-2xl font-black">Recent Online Games</h3>
-              <p className="mt-1 text-sm text-slate-400">
-                Your last 10 completed games
-              </p>
-            </div>
-
-            <Link
-              href="/history"
-              className="shrink-0 font-bold text-amber-400 transition hover:text-amber-300"
-            >
-              View All Games →
-            </Link>
-          </div>
-
-          {recentGames.length === 0 ? (
-            <div className="px-6 py-12 text-center text-slate-400">
-              You haven't completed any online games yet.
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-800">
-              {recentGames.map((game) => {
-                const isWhite = game.whitePlayerId === user.id;
-                const opponent = isWhite
-                  ? game.blackPlayer.username
-                  : game.whitePlayer.username;
-                const result = getResultLabel(game.result, isWhite);
-                const ratingDelta = game.rated
-                  ? formatRatingDelta(
-                      isWhite
-                        ? game.whiteRatingBefore
-                        : game.blackRatingBefore,
-                      isWhite ? game.whiteRatingAfter : game.blackRatingAfter,
-                    )
-                  : null;
-                const finishedAt = game.endedAt ?? game.startedAt;
-
-                return (
-                  <Link
-                    key={game.id}
-                    href={`/play/online/game/${game.id}`}
-                    className="grid gap-4 px-5 py-4 transition hover:bg-slate-800/70 sm:px-6 lg:grid-cols-[1.35fr_0.8fr_0.9fr_auto] lg:items-center"
-                  >
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Opponent
-                      </p>
-                      <p className="mt-1 text-lg font-black">{opponent}</p>
-                      <p className="mt-1 text-sm text-slate-400">
-                        Played as {isWhite ? "White" : "Black"}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Result
-                      </p>
-                      <p className={`mt-1 text-lg font-black ${result.className}`}>
-                        {result.label}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {getEndReasonLabel(game.endReason)}
-                      </p>
-                    </div>
-
-                    <div>
-                      <p className="text-xs font-bold uppercase tracking-wider text-slate-500">
-                        Game
-                      </p>
-                      <p className="mt-1 font-black">
-                        {formatTimeControl(
-                          game.initialTimeSeconds,
-                          game.incrementSeconds,
-                        )}{" "}
-                        · {game.timeControl}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-400">
-                        {game.rated ? "Rated" : "Casual"}
-                        {game.rated && ratingDelta ? (
-                          <span
-                            className={`ml-2 font-black ${getRatingDeltaClassName(
-                              ratingDelta,
-                            )}`}
-                          >
-                            {ratingDelta}
-                          </span>
-                        ) : null}
-                      </p>
-                    </div>
-
-                    <div className="lg:text-right">
-                      <p className="text-sm text-slate-400">
-                        {new Intl.DateTimeFormat("en-GB", {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }).format(finishedAt)}
-                      </p>
-                      <p className="mt-2 font-black text-amber-400">
-                        View Game →
-                      </p>
-                    </div>
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-        </section>
           </div>
         </div>
       </div>
