@@ -50,6 +50,8 @@ function SidebarIcon({ children }: { children: React.ReactNode }) {
   );
 }
 
+const GAMES_PER_PAGE = 20;
+
 const navItems = [
   ["Home", "⌂", "/dashboard"],
   ["Play Online", "ϟ", "/play/online"],
@@ -64,7 +66,17 @@ const navItems = [
   ["Shop", "▱", "/shop"],
 ] as const;
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ tab?: string; page?: string }>;
+}) {
+  const { tab, page } = await searchParams;
+  const activeTab = tab === "games" ? "games" : "overview";
+  const requestedPage = Number.parseInt(page ?? "1", 10);
+  const currentPage =
+    Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
   const session = await auth();
 
   if (!session?.user?.email) redirect("/login");
@@ -86,13 +98,27 @@ export default async function ProfilePage() {
 
   if (!user) redirect("/login");
 
+  const gamesWhere = {
+    status: "FINISHED" as const,
+    OR: [{ whitePlayerId: user.id }, { blackPlayerId: user.id }],
+  };
+
+  const totalCompletedGames =
+    activeTab === "games"
+      ? await prisma.game.count({ where: gamesWhere })
+      : 0;
+
+  const totalPages =
+    activeTab === "games"
+      ? Math.max(1, Math.ceil(totalCompletedGames / GAMES_PER_PAGE))
+      : 1;
+  const safePage = Math.min(currentPage, totalPages);
+
   const recentGames = await prisma.game.findMany({
-    where: {
-      status: "FINISHED",
-      OR: [{ whitePlayerId: user.id }, { blackPlayerId: user.id }],
-    },
+    where: gamesWhere,
     orderBy: [{ endedAt: "desc" }, { startedAt: "desc" }],
-    take: 5,
+    skip: activeTab === "games" ? (safePage - 1) * GAMES_PER_PAGE : 0,
+    take: activeTab === "games" ? GAMES_PER_PAGE : 5,
     select: {
       id: true,
       whitePlayerId: true,
@@ -114,9 +140,37 @@ export default async function ProfilePage() {
     },
   });
 
-  const totalGames = user.wins + user.losses + user.draws;
+  const onlineStats = await prisma.game.findMany({
+    where: gamesWhere,
+    select: {
+      whitePlayerId: true,
+      result: true,
+    },
+  });
+
+  let onlineWins = 0;
+  let onlineDraws = 0;
+  let onlineLosses = 0;
+
+  for (const game of onlineStats) {
+    const isWhite = game.whitePlayerId === user.id;
+
+    if (game.result === "DRAW" || game.result === null) {
+      onlineDraws += 1;
+      continue;
+    }
+
+    const won =
+      (game.result === "WHITE_WIN" && isWhite) ||
+      (game.result === "BLACK_WIN" && !isWhite);
+
+    if (won) onlineWins += 1;
+    else onlineLosses += 1;
+  }
+
+  const totalGames = onlineWins + onlineDraws + onlineLosses;
   const winRate =
-    totalGames > 0 ? Math.round((user.wins / totalGames) * 100) : 0;
+    totalGames > 0 ? Math.round((onlineWins / totalGames) * 100) : 0;
 
   const arenaNames: Record<string, string> = {
     classic: "Classic Chess Arena",
@@ -134,7 +188,7 @@ export default async function ProfilePage() {
     <main className="min-h-screen bg-[#070c13] text-white">
       <div className="flex min-h-screen">
         <aside className="chess-arena-sidebar sticky top-0 hidden h-screen w-[224px] shrink-0 overflow-y-auto overflow-x-hidden border-r border-slate-800/90 bg-[#050a10]/98 xl:flex xl:flex-col">
-          <div className="border-b border-slate-800/80 px-4 py-2">
+          <div className="shrink-0 border-b border-slate-800/80 px-4 py-2">
             <Link href="/dashboard" className="flex flex-col items-center text-center">
               <Image
                 src="/images/chess-arena-logo.png"
@@ -165,7 +219,7 @@ export default async function ProfilePage() {
             ))}
           </nav>
 
-          <div className="sidebar-footer border-t border-slate-800/80">
+          <div className="sidebar-footer shrink-0 border-t border-slate-800/80">
             <Link
               href="/gold-pass"
               className="block rounded-xl border border-amber-400/30 bg-amber-400/10 px-4 py-2"
@@ -195,16 +249,40 @@ export default async function ProfilePage() {
 
           <style>{`
             .chess-arena-sidebar {
+              scrollbar-width: thin;
+              scrollbar-color: rgba(245,158,11,.42) transparent;
+            }
+            .chess-arena-sidebar::-webkit-scrollbar {
+              width: 5px;
+            }
+            .chess-arena-sidebar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .chess-arena-sidebar::-webkit-scrollbar-thumb {
+              background: transparent;
+              border-radius: 999px;
+            }
+            .chess-arena-sidebar:hover {
+              scrollbar-color: rgba(245,158,11,.42) transparent;
+            }
+            .chess-arena-sidebar:hover::-webkit-scrollbar-thumb {
+              background: rgba(245,158,11,.58);
+            }
+
+            .chess-arena-sidebar {
               --sidebar-gap: clamp(2px, 0.32vh, 5px);
               --nav-font: clamp(0.74rem, 1.55vh, 0.94rem);
               --nav-icon: clamp(1.55rem, 3.35vh, 2rem);
               scrollbar-width: thin;
-              scrollbar-color: rgba(245,158,11,.22) transparent;
+              scrollbar-color: transparent transparent;
             }
             .reference-sidebar-nav {
-              display:grid; flex:1 1 auto; min-height:0;
-              grid-template-rows:repeat(11,minmax(30px,1fr));
-              gap:var(--sidebar-gap); padding:.35rem 0;
+              display:grid;
+              flex:none;
+              min-height:auto;
+              grid-template-rows:repeat(11,clamp(34px,5vh,42px));
+              gap:var(--sidebar-gap);
+              padding:.35rem 0 .75rem;
             }
             .reference-nav-item {
               display:flex; min-height:0; align-items:center;
@@ -225,17 +303,15 @@ export default async function ProfilePage() {
             }
             .sidebar-footer {
               display:flex; flex-direction:column; gap:clamp(.3rem,.65vh,.55rem);
+              flex:0 0 auto;
               padding:clamp(.35rem,.8vh,.65rem);
             }
-            @media (min-width:1280px) and (max-height:620px) {
-              .chess-arena-sidebar { overflow-y:auto; }
-              .reference-sidebar-nav { flex:none; grid-template-rows:repeat(11,30px); }
-            }
+            
           `}</style>
         </aside>
 
         <div className="min-w-0 flex-1">
-          <div className="mx-auto w-full max-w-[1800px] px-3 pb-10 sm:px-5 xl:px-7">
+          <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col px-3 pb-0 sm:px-5 xl:px-7">
             <section className="relative mt-3 overflow-hidden rounded-2xl border border-slate-800/90 bg-[#050a10]">
               {user.activeArena === "roman-colosseum" ? (
                 <>
@@ -291,22 +367,38 @@ export default async function ProfilePage() {
             </section>
 
             <div className="mt-3 flex gap-1 overflow-x-auto border-b border-slate-800">
-              {["Overview", "Games", "Statistics", "Friends", "Achievements"].map(
-                (tab, index) => (
-                  <span
-                    key={tab}
-                    className={`px-5 py-3 text-sm font-black ${
-                      index === 0
-                        ? "border-b-2 border-amber-400 text-amber-300"
-                        : "text-slate-500"
-                    }`}
-                  >
-                    {tab}
-                  </span>
-                ),
-              )}
+              <Link
+                href="/profile"
+                className={`px-5 py-3 text-sm font-black transition ${
+                  activeTab === "overview"
+                    ? "border-b-2 border-amber-400 text-amber-300"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                Overview
+              </Link>
+              <Link
+                href="/profile?tab=games"
+                className={`px-5 py-3 text-sm font-black transition ${
+                  activeTab === "games"
+                    ? "border-b-2 border-amber-400 text-amber-300"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                Games
+              </Link>
+              {["Statistics", "Friends", "Achievements"].map((tabName) => (
+                <span
+                  key={tabName}
+                  className="px-5 py-3 text-sm font-black text-slate-500"
+                >
+                  {tabName}
+                </span>
+              ))}
             </div>
 
+            {activeTab === "overview" ? (
+              <>
             <section className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_1.85fr]">
               <div className="rounded-2xl border border-slate-800 bg-[#0a1019] p-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">
@@ -325,15 +417,15 @@ export default async function ProfilePage() {
                 </div>
                 <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                   <div className="rounded-xl bg-emerald-400/5 p-3">
-                    <p className="text-xl font-black text-emerald-400">{user.wins}</p>
+                    <p className="text-xl font-black text-emerald-400">{onlineWins}</p>
                     <p className="text-[10px] uppercase text-slate-500">Wins</p>
                   </div>
                   <div className="rounded-xl bg-sky-400/5 p-3">
-                    <p className="text-xl font-black text-sky-300">{user.draws}</p>
+                    <p className="text-xl font-black text-sky-300">{onlineDraws}</p>
                     <p className="text-[10px] uppercase text-slate-500">Draws</p>
                   </div>
                   <div className="rounded-xl bg-rose-400/5 p-3">
-                    <p className="text-xl font-black text-rose-400">{user.losses}</p>
+                    <p className="text-xl font-black text-rose-400">{onlineLosses}</p>
                     <p className="text-[10px] uppercase text-slate-500">Losses</p>
                   </div>
                 </div>
@@ -450,7 +542,7 @@ export default async function ProfilePage() {
 
               <div className="border-t border-slate-800 px-6 py-4 text-center">
                 <Link
-                  href="/history"
+                  href="/profile?tab=games"
                   className="inline-flex items-center gap-2 text-sm font-black text-amber-300 transition hover:text-amber-200"
                 >
                   View All Games <span>→</span>
@@ -458,7 +550,142 @@ export default async function ProfilePage() {
               </div>
             </section>
 
-            <section className="relative mt-5 overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-r from-[#090e16] via-[#111827] to-[#080d16] px-7 py-6">
+              </>
+            ) : (
+              <section className="mt-5 overflow-hidden rounded-2xl border border-slate-800 bg-[#0a1019]">
+                <div className="flex flex-col gap-3 border-b border-slate-800 px-6 py-5 sm:flex-row sm:items-end sm:justify-between">
+                  <div>
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">
+                      Match Archive
+                    </p>
+                    <h2 className="mt-1 text-2xl font-black">Games</h2>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Your completed online games
+                    </p>
+                  </div>
+                  <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                    {totalCompletedGames} {totalCompletedGames === 1 ? "game" : "games"}
+                  </p>
+                </div>
+
+                {recentGames.length === 0 ? (
+                  <div className="px-6 py-14 text-center text-slate-400">
+                    You haven&apos;t completed any online games yet.
+                  </div>
+                ) : (
+                  <div className="divide-y divide-slate-800">
+                    {recentGames.map((game) => {
+                      const isWhite = game.whitePlayerId === user.id;
+                      const opponent = isWhite
+                        ? game.blackPlayer.username
+                        : game.whitePlayer.username;
+                      const result = resultLabel(game.result, isWhite);
+                      const delta = game.rated
+                        ? ratingDelta(
+                            isWhite ? game.whiteRatingBefore : game.blackRatingBefore,
+                            isWhite ? game.whiteRatingAfter : game.blackRatingAfter,
+                          )
+                        : null;
+                      const deltaColor =
+                        delta?.startsWith("+")
+                          ? "text-emerald-400"
+                          : delta && delta !== "0"
+                            ? "text-rose-400"
+                            : "text-slate-300";
+                      const finishedAt = game.endedAt ?? game.startedAt;
+
+                      return (
+                        <Link
+                          key={game.id}
+                          href={`/play/online/game/${game.id}`}
+                          className="grid gap-4 px-6 py-4 transition hover:bg-slate-800/45 lg:grid-cols-[1.3fr_.8fr_.9fr_auto] lg:items-center"
+                        >
+                          <div>
+                            <p className="text-[10px] uppercase text-slate-500">Opponent</p>
+                            <p className="mt-1 font-black">{opponent}</p>
+                            <p className="text-xs text-slate-500">
+                              Played as {isWhite ? "White" : "Black"}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase text-slate-500">Result</p>
+                            <p className={`mt-1 font-black ${result.color}`}>{result.text}</p>
+                            <p className="text-xs text-slate-500">
+                              {endReasonLabel(game.endReason)}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] uppercase text-slate-500">Game</p>
+                            <p className="mt-1 font-black">
+                              {timeControl(game.initialTimeSeconds, game.incrementSeconds)} ·{" "}
+                              {game.timeControl}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                              {game.rated ? "Rated" : "Casual"}
+                              {game.rated && delta ? (
+                                <span className={`ml-2 font-black ${deltaColor}`}>{delta}</span>
+                              ) : null}
+                            </p>
+                          </div>
+                          <div className="lg:text-right">
+                            <p className="text-xs text-slate-500">
+                              {new Intl.DateTimeFormat("en-GB", {
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              }).format(finishedAt)}
+                            </p>
+                            <p className="mt-2 text-sm font-black text-amber-300">
+                              View Game →
+                            </p>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {totalCompletedGames > 0 && totalPages > 1 ? (
+                  <div className="flex flex-col gap-3 border-t border-slate-800 px-6 py-4 sm:flex-row sm:items-center sm:justify-between">
+                    {safePage > 1 ? (
+                      <Link
+                        href={`/profile?tab=games&page=${safePage - 1}`}
+                        className="inline-flex items-center justify-center rounded-lg border border-slate-700 bg-slate-900/70 px-4 py-2 text-sm font-black text-slate-200 transition hover:border-amber-400/40 hover:text-amber-300"
+                      >
+                        ← Previous
+                      </Link>
+                    ) : (
+                      <span className="inline-flex cursor-not-allowed items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-black text-slate-600">
+                        ← Previous
+                      </span>
+                    )}
+
+                    <p className="text-center text-xs font-bold uppercase tracking-[0.16em] text-slate-500">
+                      Page <span className="text-slate-200">{safePage}</span> of{" "}
+                      <span className="text-slate-200">{totalPages}</span>
+                    </p>
+
+                    {safePage < totalPages ? (
+                      <Link
+                        href={`/profile?tab=games&page=${safePage + 1}`}
+                        className="inline-flex items-center justify-center rounded-lg border border-amber-400/30 bg-amber-400/10 px-4 py-2 text-sm font-black text-amber-300 transition hover:border-amber-300/55 hover:bg-amber-400/15"
+                      >
+                        Next →
+                      </Link>
+                    ) : (
+                      <span className="inline-flex cursor-not-allowed items-center justify-center rounded-lg border border-slate-800 bg-slate-950/40 px-4 py-2 text-sm font-black text-slate-600">
+                        Next →
+                      </span>
+                    )}
+                  </div>
+                ) : null}
+              </section>
+            )}
+
+            <section
+              className={`relative mt-5 flex min-h-[112px] items-center overflow-hidden rounded-t-2xl border border-slate-800 bg-gradient-to-r from-[#090e16] via-[#111827] to-[#080d16] px-7 py-6 ${
+                activeTab === "overview" ? "flex-1" : ""
+              }`}
+            >
               <div className="absolute right-[15%] top-1/2 -translate-y-1/2 text-[110px] leading-none text-amber-400/10">♚</div>
               <p className="relative z-10 font-serif text-sm uppercase leading-6 tracking-[0.25em] text-slate-200">
                 Legends aren&apos;t born.<br />
