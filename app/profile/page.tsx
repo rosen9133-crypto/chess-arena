@@ -72,7 +72,8 @@ export default async function ProfilePage({
   searchParams: Promise<{ tab?: string; page?: string }>;
 }) {
   const { tab, page } = await searchParams;
-  const activeTab = tab === "games" ? "games" : "overview";
+  const activeTab =
+    tab === "games" || tab === "statistics" ? tab : "overview";
   const requestedPage = Number.parseInt(page ?? "1", 10);
   const currentPage =
     Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -118,7 +119,12 @@ export default async function ProfilePage({
     where: gamesWhere,
     orderBy: [{ endedAt: "desc" }, { startedAt: "desc" }],
     skip: activeTab === "games" ? (safePage - 1) * GAMES_PER_PAGE : 0,
-    take: activeTab === "games" ? GAMES_PER_PAGE : 5,
+    take:
+      activeTab === "games"
+        ? GAMES_PER_PAGE
+        : activeTab === "statistics"
+          ? 10
+          : 5,
     select: {
       id: true,
       whitePlayerId: true,
@@ -145,6 +151,14 @@ export default async function ProfilePage({
     select: {
       whitePlayerId: true,
       result: true,
+      timeControl: true,
+      rated: true,
+      whiteRatingBefore: true,
+      whiteRatingAfter: true,
+      blackRatingBefore: true,
+      blackRatingAfter: true,
+      endedAt: true,
+      startedAt: true,
     },
   });
 
@@ -171,6 +185,247 @@ export default async function ProfilePage({
   const totalGames = onlineWins + onlineDraws + onlineLosses;
   const winRate =
     totalGames > 0 ? Math.round((onlineWins / totalGames) * 100) : 0;
+
+  const performanceByTimeControl = ["BULLET", "BLITZ", "RAPID"].map((control) => {
+    let wins = 0;
+    let draws = 0;
+    let losses = 0;
+
+    for (const game of onlineStats) {
+      if (game.timeControl !== control) continue;
+
+      const isWhite = game.whitePlayerId === user.id;
+
+      if (game.result === "DRAW" || game.result === null) {
+        draws += 1;
+        continue;
+      }
+
+      const won =
+        (game.result === "WHITE_WIN" && isWhite) ||
+        (game.result === "BLACK_WIN" && !isWhite);
+
+      if (won) wins += 1;
+      else losses += 1;
+    }
+
+    const games = wins + draws + losses;
+    const controlWinRate = games > 0 ? Math.round((wins / games) * 100) : 0;
+
+    return {
+      control,
+      games,
+      wins,
+      draws,
+      losses,
+      winRate: controlWinRate,
+    };
+  });
+
+  const performanceByColor = [
+    { color: "White", isWhite: true },
+    { color: "Black", isWhite: false },
+  ].map(({ color, isWhite }) => {
+    let wins = 0;
+    let draws = 0;
+    let losses = 0;
+
+    for (const game of onlineStats) {
+      const playedAsWhite = game.whitePlayerId === user.id;
+      if (playedAsWhite !== isWhite) continue;
+
+      if (game.result === "DRAW" || game.result === null) {
+        draws += 1;
+        continue;
+      }
+
+      const won =
+        (game.result === "WHITE_WIN" && playedAsWhite) ||
+        (game.result === "BLACK_WIN" && !playedAsWhite);
+
+      if (won) wins += 1;
+      else losses += 1;
+    }
+
+    const games = wins + draws + losses;
+    const colorWinRate = games > 0 ? Math.round((wins / games) * 100) : 0;
+
+    return {
+      color,
+      games,
+      wins,
+      draws,
+      losses,
+      winRate: colorWinRate,
+    };
+  });
+
+  const ratingProgression = ["BULLET", "BLITZ", "RAPID"].map((control) => {
+    const games = onlineStats
+      .filter((game) => game.rated && game.timeControl === control)
+      .map((game) => {
+        const isWhite = game.whitePlayerId === user.id;
+        return {
+          date: game.endedAt ?? game.startedAt,
+          before: isWhite ? game.whiteRatingBefore : game.blackRatingBefore,
+          after: isWhite ? game.whiteRatingAfter : game.blackRatingAfter,
+        };
+      })
+      .filter(
+        (game): game is { date: Date; before: number; after: number } =>
+          game.before !== null && game.after !== null,
+      )
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const points =
+      games.length > 0
+        ? [
+            { date: games[0].date, rating: Math.round(games[0].before) },
+            ...games.map((game) => ({
+              date: game.date,
+              rating: Math.round(game.after),
+            })),
+          ]
+        : [];
+
+    const ratings = points.map((point) => point.rating);
+    const minRating = ratings.length > 0 ? Math.min(...ratings) : 0;
+    const maxRating = ratings.length > 0 ? Math.max(...ratings) : 0;
+    const currentRating =
+      control === "BULLET"
+        ? Math.round(user.bulletRating)
+        : control === "BLITZ"
+          ? Math.round(user.blitzRating)
+          : Math.round(user.rapidRating);
+
+    const width = 1000;
+    const height = 260;
+    const padLeft = 78;
+    const padRight = 24;
+    const padTop = 20;
+    const padBottom = 44;
+
+    const rawMin = ratings.length > 0 ? Math.min(...ratings) : 0;
+    const rawMax = ratings.length > 0 ? Math.max(...ratings) : 0;
+    const axisStep = 100;
+    const axisMin =
+      ratings.length > 0 ? Math.floor((rawMin - 50) / axisStep) * axisStep : 0;
+    const axisMax =
+      ratings.length > 0 ? Math.ceil((rawMax + 50) / axisStep) * axisStep : 0;
+    const axisRange = Math.max(axisStep, axisMax - axisMin);
+
+    const chartPoints = points.map((point, index) => {
+      const x =
+        points.length === 1
+          ? (padLeft + width - padRight) / 2
+          : padLeft +
+            (index / (points.length - 1)) * (width - padLeft - padRight);
+      const y =
+        height -
+        padBottom -
+        ((point.rating - axisMin) / axisRange) *
+          (height - padTop - padBottom);
+      return { ...point, x, y };
+    });
+
+    const yTicks = Array.from({ length: 5 }, (_, index) => {
+      const value = axisMin + (axisRange * index) / 4;
+      const y =
+        height -
+        padBottom -
+        (index / 4) * (height - padTop - padBottom);
+      return { value: Math.round(value), y };
+    }).reverse();
+
+    const firstDate = points[0]?.date ?? null;
+    const lastDate = points[points.length - 1]?.date ?? null;
+    const dateTicks =
+      firstDate && lastDate
+        ? Array.from({ length: 4 }, (_, index) => {
+            const ratio = index / 3;
+            const timestamp =
+              firstDate.getTime() +
+              (lastDate.getTime() - firstDate.getTime()) * ratio;
+            return {
+              x: padLeft + ratio * (width - padLeft - padRight),
+              label: new Intl.DateTimeFormat("en", {
+                month: "short",
+                year: "numeric",
+              }).format(new Date(timestamp)),
+            };
+          })
+        : [];
+
+    const polyline = chartPoints
+      .map((point) => `${point.x},${point.y}`)
+      .join(" ");
+    const areaPath =
+      chartPoints.length > 1
+        ? `M ${chartPoints[0].x} ${height - padBottom} L ${chartPoints
+            .map((point) => `${point.x} ${point.y}`)
+            .join(" L ")} L ${chartPoints[chartPoints.length - 1].x} ${
+            height - padBottom
+          } Z`
+        : "";
+
+    return {
+      control,
+      points: chartPoints,
+      polyline,
+      areaPath,
+      yTicks,
+      dateTicks,
+      minRating,
+      maxRating,
+      currentRating,
+      ratedGames: games.length,
+    };
+  });
+
+  const recentForm = recentGames.slice(0, 10).map((game) => {
+    const isWhite = game.whitePlayerId === user.id;
+
+    if (game.result === "DRAW" || game.result === null) {
+      return "D" as const;
+    }
+
+    const won =
+      (game.result === "WHITE_WIN" && isWhite) ||
+      (game.result === "BLACK_WIN" && !isWhite);
+
+    return won ? ("W" as const) : ("L" as const);
+  });
+
+  const recentWins = recentForm.filter((result) => result === "W").length;
+  const recentDraws = recentForm.filter((result) => result === "D").length;
+  const recentLosses = recentForm.filter((result) => result === "L").length;
+  const recentWinRate =
+    recentForm.length > 0
+      ? Math.round((recentWins / recentForm.length) * 100)
+      : 0;
+
+  let currentStreakCount = 0;
+  let currentStreakResult: "W" | "D" | "L" | null = null;
+
+  for (const result of recentForm) {
+    if (currentStreakResult === null) {
+      currentStreakResult = result;
+      currentStreakCount = 1;
+      continue;
+    }
+
+    if (result !== currentStreakResult) break;
+    currentStreakCount += 1;
+  }
+
+  const currentStreakLabel =
+    currentStreakResult === "W"
+      ? `${currentStreakCount} win${currentStreakCount === 1 ? "" : "s"}`
+      : currentStreakResult === "L"
+        ? `${currentStreakCount} loss${currentStreakCount === 1 ? "" : "es"}`
+        : currentStreakResult === "D"
+          ? `${currentStreakCount} draw${currentStreakCount === 1 ? "" : "s"}`
+          : "No games";
 
   const arenaNames: Record<string, string> = {
     classic: "Classic Chess Arena",
@@ -387,7 +642,17 @@ export default async function ProfilePage({
               >
                 Games
               </Link>
-              {["Statistics", "Friends", "Achievements"].map((tabName) => (
+              <Link
+                href="/profile?tab=statistics"
+                className={`px-5 py-3 text-sm font-black transition ${
+                  activeTab === "statistics"
+                    ? "border-b-2 border-amber-400 text-amber-300"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                Statistics
+              </Link>
+              {["Friends", "Achievements"].map((tabName) => (
                 <span
                   key={tabName}
                   className="px-5 py-3 text-sm font-black text-slate-500"
@@ -551,7 +816,7 @@ export default async function ProfilePage({
             </section>
 
               </>
-            ) : (
+            ) : activeTab === "games" ? (
               <section className="mt-5 overflow-hidden rounded-2xl border border-slate-800 bg-[#0a1019]">
                 <div className="flex flex-col gap-3 border-b border-slate-800 px-6 py-5 sm:flex-row sm:items-end sm:justify-between">
                   <div>
@@ -679,11 +944,510 @@ export default async function ProfilePage({
                   </div>
                 ) : null}
               </section>
+            ) : (
+              <section className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_1.85fr]">
+                <div className="rounded-2xl border border-slate-800 bg-[#0a1019] p-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">
+                    Online Performance
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black">Statistics</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Your completed online games
+                  </p>
+
+                  <div className="mt-5 grid grid-cols-2 gap-3">
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-4">
+                      <p className="text-xs uppercase text-slate-500">Games</p>
+                      <p className="mt-1 text-3xl font-black">{totalGames}</p>
+                    </div>
+                    <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-4">
+                      <p className="text-xs uppercase text-slate-500">Win Rate</p>
+                      <p className="mt-1 text-3xl font-black text-amber-300">
+                        {winRate}%
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    <div className="rounded-xl bg-emerald-400/5 p-3">
+                      <p className="text-2xl font-black text-emerald-400">
+                        {onlineWins}
+                      </p>
+                      <p className="text-[10px] uppercase text-slate-500">Wins</p>
+                    </div>
+                    <div className="rounded-xl bg-sky-400/5 p-3">
+                      <p className="text-2xl font-black text-sky-300">
+                        {onlineDraws}
+                      </p>
+                      <p className="text-[10px] uppercase text-slate-500">Draws</p>
+                    </div>
+                    <div className="rounded-xl bg-rose-400/5 p-3">
+                      <p className="text-2xl font-black text-rose-400">
+                        {onlineLosses}
+                      </p>
+                      <p className="text-[10px] uppercase text-slate-500">Losses</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-3">
+                  {[
+                    ["Bullet", Math.round(user.bulletRating), "⚡"],
+                    ["Blitz", Math.round(user.blitzRating), "🔥"],
+                    ["Rapid", Math.round(user.rapidRating), "⏱"],
+                  ].map(([name, value, icon]) => (
+                    <div
+                      key={String(name)}
+                      className="rounded-2xl border border-slate-800 bg-[#0a1019] p-5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-black uppercase tracking-[0.18em] text-slate-400">
+                          {name}
+                        </p>
+                        <span>{icon}</span>
+                      </div>
+                      <p className="mt-5 text-4xl font-black">{value}</p>
+                      <p className="mt-2 text-xs text-slate-500">
+                        Current rated chess rating
+                      </p>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="xl:col-span-2">
+                  <div className="mb-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">
+                      Time Controls
+                    </p>
+                    <h3 className="mt-1 text-xl font-black">
+                      Performance by Time Control
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Results from your completed online games
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {performanceByTimeControl.map((stats) => (
+                      <div
+                        key={stats.control}
+                        className="rounded-2xl border border-slate-800 bg-[#0a1019] p-5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <p className="text-sm font-black text-slate-200">
+                            {stats.control.charAt(0) +
+                              stats.control.slice(1).toLowerCase()}
+                          </p>
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-300">
+                            {stats.winRate}% Win Rate
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-2 gap-3">
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-3">
+                            <p className="text-[10px] uppercase text-slate-500">
+                              Games
+                            </p>
+                            <p className="mt-1 text-2xl font-black">
+                              {stats.games}
+                            </p>
+                          </div>
+                          <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-3">
+                            <p className="text-[10px] uppercase text-slate-500">
+                              Win Rate
+                            </p>
+                            <p className="mt-1 text-2xl font-black text-amber-300">
+                              {stats.winRate}%
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                          <div className="rounded-lg bg-emerald-400/5 p-3">
+                            <p className="text-lg font-black text-emerald-400">
+                              {stats.wins}
+                            </p>
+                            <p className="text-[9px] uppercase text-slate-500">
+                              Wins
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-sky-400/5 p-3">
+                            <p className="text-lg font-black text-sky-300">
+                              {stats.draws}
+                            </p>
+                            <p className="text-[9px] uppercase text-slate-500">
+                              Draws
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-rose-400/5 p-3">
+                            <p className="text-lg font-black text-rose-400">
+                              {stats.losses}
+                            </p>
+                            <p className="text-[9px] uppercase text-slate-500">
+                              Losses
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="xl:col-span-2">
+                  <div className="mb-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">
+                      Playing Color
+                    </p>
+                    <h3 className="mt-1 text-xl font-black">
+                      White vs Black Performance
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Compare your results when playing each side
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {performanceByColor.map((stats) => (
+                      <div
+                        key={stats.color}
+                        className="rounded-2xl border border-slate-800 bg-[#0a1019] p-5"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`flex h-10 w-10 items-center justify-center rounded-xl border text-xl ${
+                                stats.color === "White"
+                                  ? "border-slate-600 bg-slate-100 text-slate-950"
+                                  : "border-slate-700 bg-slate-950 text-slate-100"
+                              }`}
+                            >
+                              ♟
+                            </span>
+                            <div>
+                              <p className="text-sm font-black text-slate-200">
+                                Playing as {stats.color}
+                              </p>
+                              <p className="text-xs text-slate-500">
+                                {stats.games} completed games
+                              </p>
+                            </div>
+                          </div>
+
+                          <p className="text-xs font-black uppercase tracking-[0.14em] text-amber-300">
+                            {stats.winRate}% Win Rate
+                          </p>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-4 gap-2 text-center">
+                          <div className="rounded-lg border border-slate-800 bg-slate-950/55 p-3">
+                            <p className="text-lg font-black text-slate-100">
+                              {stats.games}
+                            </p>
+                            <p className="text-[9px] uppercase text-slate-500">
+                              Games
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-emerald-400/5 p-3">
+                            <p className="text-lg font-black text-emerald-400">
+                              {stats.wins}
+                            </p>
+                            <p className="text-[9px] uppercase text-slate-500">
+                              Wins
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-sky-400/5 p-3">
+                            <p className="text-lg font-black text-sky-300">
+                              {stats.draws}
+                            </p>
+                            <p className="text-[9px] uppercase text-slate-500">
+                              Draws
+                            </p>
+                          </div>
+                          <div className="rounded-lg bg-rose-400/5 p-3">
+                            <p className="text-lg font-black text-rose-400">
+                              {stats.losses}
+                            </p>
+                            <p className="text-[9px] uppercase text-slate-500">
+                              Losses
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="xl:col-span-2">
+                  <div className="mb-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">
+                      Rating History
+                    </p>
+                    <h3 className="mt-1 text-xl font-black">Rating Progression</h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Your rating movement across completed rated online games
+                    </p>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-3">
+                    {ratingProgression.map((series) => (
+                      <div
+                        key={series.control}
+                        className="overflow-hidden rounded-2xl border border-slate-800 bg-[#0a1019] p-5"
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-sm font-black text-slate-200">
+                              {series.control.charAt(0) +
+                                series.control.slice(1).toLowerCase()}
+                            </p>
+                            <p className="mt-1 text-xs text-slate-500">
+                              {series.ratedGames} rated games
+                            </p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-[9px] font-black uppercase tracking-[0.14em] text-slate-500">
+                              Current
+                            </p>
+                            <p className="text-2xl font-black text-amber-300">
+                              {series.currentRating}
+                            </p>
+                          </div>
+                        </div>
+
+                        {series.points.length > 1 ? (
+                          <>
+                            <div className="mt-5 rounded-xl border border-slate-800 bg-slate-950/45 p-3">
+                              <svg
+                                viewBox="0 0 1000 260"
+                                role="img"
+                                aria-label={`${series.control} rating progression`}
+                                className="h-[190px] w-full overflow-visible"
+                                preserveAspectRatio="none"
+                              >
+                                <defs>
+                                  <linearGradient
+                                    id={`rating-fill-${series.control}`}
+                                    x1="0"
+                                    y1="0"
+                                    x2="0"
+                                    y2="1"
+                                  >
+                                    <stop
+                                      offset="0%"
+                                      stopColor="rgb(252 211 77)"
+                                      stopOpacity="0.22"
+                                    />
+                                    <stop
+                                      offset="100%"
+                                      stopColor="rgb(252 211 77)"
+                                      stopOpacity="0.015"
+                                    />
+                                  </linearGradient>
+                                </defs>
+
+                                {series.yTicks.map((tick) => (
+                                  <g key={`${series.control}-y-${tick.value}`}>
+                                    <line
+                                      x1="78"
+                                      y1={tick.y}
+                                      x2="976"
+                                      y2={tick.y}
+                                      stroke="rgba(100,116,139,.18)"
+                                      strokeWidth="1"
+                                      vectorEffect="non-scaling-stroke"
+                                    />
+                                    <text
+                                      x="62"
+                                      y={tick.y + 5}
+                                      textAnchor="end"
+                                      fill="rgb(100 116 139)"
+                                      fontSize="26"
+                                      fontWeight="700"
+                                    >
+                                      {tick.value}
+                                    </text>
+                                  </g>
+                                ))}
+
+                                {series.dateTicks.map((tick, index) => (
+                                  <g key={`${series.control}-x-${index}`}>
+                                    <line
+                                      x1={tick.x}
+                                      y1="20"
+                                      x2={tick.x}
+                                      y2="216"
+                                      stroke="rgba(100,116,139,.10)"
+                                      strokeWidth="1"
+                                      vectorEffect="non-scaling-stroke"
+                                    />
+                                    <text
+                                      x={tick.x}
+                                      y="250"
+                                      textAnchor={
+                                        index === 0
+                                          ? "start"
+                                          : index === series.dateTicks.length - 1
+                                            ? "end"
+                                            : "middle"
+                                      }
+                                      fill="rgb(100 116 139)"
+                                      fontSize="24"
+                                      fontWeight="700"
+                                    >
+                                      {tick.label}
+                                    </text>
+                                  </g>
+                                ))}
+
+                                <path
+                                  d={series.areaPath}
+                                  fill={`url(#rating-fill-${series.control})`}
+                                />
+
+                                <polyline
+                                  points={series.polyline}
+                                  fill="none"
+                                  stroke="rgb(252 211 77)"
+                                  strokeWidth="2.25"
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  vectorEffect="non-scaling-stroke"
+                                />
+
+                                {series.points.length > 0 ? (
+                                  <circle
+                                    cx={series.points[series.points.length - 1].x}
+                                    cy={series.points[series.points.length - 1].y}
+                                    r="5"
+                                    fill="rgb(252 211 77)"
+                                    stroke="rgb(7 12 19)"
+                                    strokeWidth="2"
+                                    vectorEffect="non-scaling-stroke"
+                                  />
+                                ) : null}
+                              </svg>
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-2 text-center text-xs">
+                              <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                                <span className="text-slate-500">Low </span>
+                                <strong className="text-sky-300">
+                                  {series.minRating}
+                                </strong>
+                              </div>
+                              <div className="rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                                <span className="text-slate-500">High </span>
+                                <strong className="text-emerald-400">
+                                  {series.maxRating}
+                                </strong>
+                              </div>
+                            </div>
+                          </>
+                        ) : (
+                          <div className="mt-5 flex min-h-[188px] items-center justify-center rounded-xl border border-dashed border-slate-800 bg-slate-950/35 px-4 text-center">
+                            <p className="text-sm text-slate-500">
+                              Not enough rated games for a rating graph yet.
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="xl:col-span-2">
+                  <div className="mb-3">
+                    <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">
+                      Recent Form
+                    </p>
+                    <h3 className="mt-1 text-xl font-black">
+                      Last {recentForm.length} Online Games
+                    </h3>
+                    <p className="mt-1 text-sm text-slate-500">
+                      Your most recent completed online results
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-800 bg-[#0a1019] p-5">
+                    <div className="grid gap-4 lg:grid-cols-[1.35fr_.65fr]">
+                      <div>
+                        <div className="flex flex-wrap gap-2">
+                          {recentForm.map((result, index) => (
+                            <div
+                              key={`recent-form-${index}`}
+                              className={`flex h-11 w-11 items-center justify-center rounded-xl border text-sm font-black ${
+                                result === "W"
+                                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-400"
+                                  : result === "D"
+                                    ? "border-sky-400/30 bg-sky-400/10 text-sky-300"
+                                    : "border-rose-400/30 bg-rose-400/10 text-rose-400"
+                              }`}
+                            >
+                              {result}
+                            </div>
+                          ))}
+                        </div>
+
+                        <p className="mt-3 text-xs text-slate-500">
+                          Most recent game first
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-4">
+                          <p className="text-[10px] uppercase text-slate-500">
+                            Recent Win Rate
+                          </p>
+                          <p className="mt-1 text-2xl font-black text-amber-300">
+                            {recentWinRate}%
+                          </p>
+                        </div>
+
+                        <div className="rounded-xl border border-slate-800 bg-slate-950/55 p-4">
+                          <p className="text-[10px] uppercase text-slate-500">
+                            Current Streak
+                          </p>
+                          <p className="mt-1 text-2xl font-black text-slate-100">
+                            {currentStreakLabel}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                      <div className="rounded-xl bg-emerald-400/5 p-3">
+                        <p className="text-xl font-black text-emerald-400">
+                          {recentWins}
+                        </p>
+                        <p className="text-[10px] uppercase text-slate-500">
+                          Wins
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-sky-400/5 p-3">
+                        <p className="text-xl font-black text-sky-300">
+                          {recentDraws}
+                        </p>
+                        <p className="text-[10px] uppercase text-slate-500">
+                          Draws
+                        </p>
+                      </div>
+                      <div className="rounded-xl bg-rose-400/5 p-3">
+                        <p className="text-xl font-black text-rose-400">
+                          {recentLosses}
+                        </p>
+                        <p className="text-[10px] uppercase text-slate-500">
+                          Losses
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
             )}
 
             <section
               className={`relative mt-5 flex min-h-[112px] items-center overflow-hidden rounded-t-2xl border border-slate-800 bg-gradient-to-r from-[#090e16] via-[#111827] to-[#080d16] px-7 py-6 ${
-                activeTab === "overview" ? "flex-1" : ""
+                activeTab !== "games" ? "flex-1" : ""
               }`}
             >
               <div className="absolute right-[15%] top-1/2 -translate-y-1/2 text-[110px] leading-none text-amber-400/10">♚</div>
