@@ -62,6 +62,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Player not found." }, { status: 404 });
   }
 
+  const existingBlock = await prisma.userBlock.findFirst({
+    where: {
+      OR: [
+        {
+          blockerId: currentUser.id,
+          blockedId: addresseeId,
+        },
+        {
+          blockerId: addresseeId,
+          blockedId: currentUser.id,
+        },
+      ],
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  if (existingBlock) {
+    return NextResponse.json(
+      { error: "Friend request cannot be sent between blocked players." },
+      { status: 403 },
+    );
+  }
+
   const existingFriendship = await prisma.friendship.findFirst({
     where: {
       OR: [

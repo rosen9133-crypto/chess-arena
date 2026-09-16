@@ -8,6 +8,8 @@ import AddFriendButton from "@/components/AddFriendButton";
 import AcceptFriendButton from "@/components/AcceptFriendButton";
 import DeclineFriendButton from "@/components/DeclineFriendButton";
 import RemoveFriendButton from "@/components/RemoveFriendButton";
+import BlockUserButton from "@/components/BlockUserButton";
+import UnblockUserButton from "@/components/UnblockUserButton";
 import FriendsRealtimeSync from "@/components/FriendsRealtimeSync";
 import { prisma } from "@/lib/prisma";
 
@@ -161,6 +163,18 @@ export default async function ProfilePage({
 
   const outgoingFriendRequestIds = new Set(
     outgoingFriendRequests.map((request) => request.addresseeId),
+  );
+
+  const blockedUsers =
+    activeTab === "friends"
+      ? await prisma.userBlock.findMany({
+          where: { blockerId: user.id },
+          select: { blockedId: true },
+        })
+      : [];
+
+  const blockedUserIds = new Set(
+    blockedUsers.map((block) => block.blockedId),
   );
 
   const acceptedFriendships =
@@ -1168,6 +1182,10 @@ export default async function ProfilePage({
                                   friendshipId={friend.friendshipId}
                                   friendUserId={friend.id}
                                 />
+                                <BlockUserButton
+                                  userId={friend.id}
+                                  username={friend.username}
+                                />
                               </div>
                             </div>
                           ))}
@@ -1231,20 +1249,37 @@ export default async function ProfilePage({
                                   </p>
                                 </div>
                               </div>
-                              {friends.some((friend) => friend.id === player.id) ? (
-                                <span className="rounded-xl border border-emerald-400/35 bg-emerald-400/10 px-5 py-2.5 text-sm font-black uppercase tracking-[0.12em] text-emerald-300">
-                                  Friend
-                                </span>
-                              ) : (
-                                <AddFriendButton
-                                  addresseeId={player.id}
-                                  initialStatus={
-                                    outgoingFriendRequestIds.has(player.id)
-                                      ? "sent"
-                                      : "idle"
-                                  }
-                                />
-                              )}
+                              <div className="flex items-center gap-2">
+                                {blockedUserIds.has(player.id) ? (
+                                  <>
+                                    <span className="rounded-xl border border-rose-400/35 bg-rose-400/10 px-5 py-2.5 text-sm font-black uppercase tracking-[0.12em] text-rose-300">
+                                      Blocked
+                                    </span>
+                                    <UnblockUserButton userId={player.id} />
+                                  </>
+                                ) : (
+                                  <>
+                                    {friends.some((friend) => friend.id === player.id) ? (
+                                      <span className="rounded-xl border border-emerald-400/35 bg-emerald-400/10 px-5 py-2.5 text-sm font-black uppercase tracking-[0.12em] text-emerald-300">
+                                        Friend
+                                      </span>
+                                    ) : (
+                                      <AddFriendButton
+                                        addresseeId={player.id}
+                                        initialStatus={
+                                          outgoingFriendRequestIds.has(player.id)
+                                            ? "sent"
+                                            : "idle"
+                                        }
+                                      />
+                                    )}
+                                    <BlockUserButton
+                                      userId={player.id}
+                                      username={player.username}
+                                    />
+                                  </>
+                                )}
+                              </div>
                             </div>
                           ))}
                         </div>
