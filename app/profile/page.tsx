@@ -4,6 +4,11 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import LogoutButton from "@/components/LogoutButton";
+import AddFriendButton from "@/components/AddFriendButton";
+import AcceptFriendButton from "@/components/AcceptFriendButton";
+import DeclineFriendButton from "@/components/DeclineFriendButton";
+import RemoveFriendButton from "@/components/RemoveFriendButton";
+import FriendsRealtimeSync from "@/components/FriendsRealtimeSync";
 import { prisma } from "@/lib/prisma";
 
 type GameResult = "WHITE_WIN" | "BLACK_WIN" | "DRAW" | null;
@@ -69,11 +74,13 @@ const navItems = [
 export default async function ProfilePage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string; page?: string }>;
+  searchParams: Promise<{ tab?: string; page?: string; q?: string }>;
 }) {
-  const { tab, page } = await searchParams;
+  const { tab, page, q } = await searchParams;
   const activeTab =
-    tab === "games" || tab === "statistics" ? tab : "overview";
+    tab === "games" || tab === "statistics" || tab === "friends"
+      ? tab
+      : "overview";
   const requestedPage = Number.parseInt(page ?? "1", 10);
   const currentPage =
     Number.isFinite(requestedPage) && requestedPage > 0 ? requestedPage : 1;
@@ -98,6 +105,104 @@ export default async function ProfilePage({
   });
 
   if (!user) redirect("/login");
+
+  const friendSearchQuery = q?.trim() ?? "";
+  const friendSearchResults =
+    activeTab === "friends" && friendSearchQuery.length >= 2
+      ? await prisma.user.findMany({
+          where: {
+            id: { not: user.id },
+            username: {
+              contains: friendSearchQuery,
+              mode: "insensitive",
+            },
+          },
+          orderBy: { username: "asc" },
+          take: 10,
+          select: {
+            id: true,
+            username: true,
+            bulletRating: true,
+            blitzRating: true,
+            rapidRating: true,
+          },
+        })
+      : [];
+
+  const incomingFriendRequests =
+    activeTab === "friends"
+      ? await prisma.friendship.findMany({
+          where: { addresseeId: user.id, status: "PENDING" },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            requester: {
+              select: {
+                id: true,
+                username: true,
+                bulletRating: true,
+                blitzRating: true,
+                rapidRating: true,
+              },
+            },
+          },
+        })
+      : [];
+
+  const outgoingFriendRequests =
+    activeTab === "friends"
+      ? await prisma.friendship.findMany({
+          where: { requesterId: user.id, status: "PENDING" },
+          select: {
+            addresseeId: true,
+          },
+        })
+      : [];
+
+  const outgoingFriendRequestIds = new Set(
+    outgoingFriendRequests.map((request) => request.addresseeId),
+  );
+
+  const acceptedFriendships =
+    activeTab === "friends"
+      ? await prisma.friendship.findMany({
+          where: {
+            status: "ACCEPTED",
+            OR: [{ requesterId: user.id }, { addresseeId: user.id }],
+          },
+          orderBy: { updatedAt: "desc" },
+          select: {
+            id: true,
+            requesterId: true,
+            addresseeId: true,
+            requester: {
+              select: {
+                id: true,
+                username: true,
+                bulletRating: true,
+                blitzRating: true,
+                rapidRating: true,
+              },
+            },
+            addressee: {
+              select: {
+                id: true,
+                username: true,
+                bulletRating: true,
+                blitzRating: true,
+                rapidRating: true,
+              },
+            },
+          },
+        })
+      : [];
+
+  const friends = acceptedFriendships.map((friendship) => ({
+    friendshipId: friendship.id,
+    ...(friendship.requesterId === user.id
+      ? friendship.addressee
+      : friendship.requester),
+  }));
 
   const gamesWhere = {
     status: "FINISHED" as const,
@@ -441,6 +546,7 @@ export default async function ProfilePage({
 
   return (
     <main className="min-h-screen bg-[#070c13] text-white">
+      <FriendsRealtimeSync userId={user.id} />
       <div className="flex min-h-screen">
         <aside className="chess-arena-sidebar sticky top-0 hidden h-screen w-[224px] shrink-0 overflow-y-auto overflow-x-hidden border-r border-slate-800/90 bg-[#050a10]/98 xl:flex xl:flex-col">
           <div className="shrink-0 border-b border-slate-800/80 px-4 py-2">
@@ -652,14 +758,19 @@ export default async function ProfilePage({
               >
                 Statistics
               </Link>
-              {["Friends", "Achievements"].map((tabName) => (
-                <span
-                  key={tabName}
-                  className="px-5 py-3 text-sm font-black text-slate-500"
-                >
-                  {tabName}
-                </span>
-              ))}
+              <Link
+                href="/profile?tab=friends"
+                className={`px-5 py-3 text-sm font-black transition ${
+                  activeTab === "friends"
+                    ? "border-b-2 border-amber-400 text-amber-300"
+                    : "text-slate-500 hover:text-slate-300"
+                }`}
+              >
+                Friends
+              </Link>
+              <span className="px-5 py-3 text-sm font-black text-slate-500">
+                Achievements
+              </span>
             </div>
 
             {activeTab === "overview" ? (
@@ -943,6 +1054,218 @@ export default async function ProfilePage({
                     )}
                   </div>
                 ) : null}
+              </section>
+            ) : activeTab === "friends" ? (
+              <section className="mt-5 overflow-hidden rounded-2xl border border-slate-800 bg-[#0a1019]">
+                <div className="border-b border-slate-800 px-6 py-5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">
+                    Player Network
+                  </p>
+                  <h2 className="mt-1 text-2xl font-black">Friends</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Find Chess Arena players by username
+                  </p>
+                </div>
+
+                <div className="p-6">
+                  <div className="mb-6">
+                    <div className="flex items-end justify-between gap-4">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
+                          Friend Requests
+                        </p>
+                        <h3 className="mt-1 text-lg font-black text-slate-100">Incoming Requests</h3>
+                      </div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                        {incomingFriendRequests.length} {incomingFriendRequests.length === 1 ? "request" : "requests"}
+                      </p>
+                    </div>
+
+                    {incomingFriendRequests.length > 0 ? (
+                      <div className="mt-4 overflow-hidden rounded-xl border border-slate-800">
+                        <div className="divide-y divide-slate-800">
+                          {incomingFriendRequests.map((request) => (
+                            <div key={request.id} className="flex flex-col gap-4 bg-slate-950/35 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                              <div className="flex min-w-0 items-center gap-4">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/10 font-black text-amber-300">
+                                  {request.requester.username.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate font-black text-slate-100">{request.requester.username}</p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Bullet {Math.round(request.requester.bulletRating)}
+                                    <span className="mx-2 text-slate-700">•</span>
+                                    Blitz {Math.round(request.requester.blitzRating)}
+                                    <span className="mx-2 text-slate-700">•</span>
+                                    Rapid {Math.round(request.requester.rapidRating)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <AcceptFriendButton
+                                  friendshipId={request.id}
+                                  requesterId={request.requester.id}
+                                />
+                                <DeclineFriendButton
+                                  friendshipId={request.id}
+                                  requesterId={request.requester.id}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/25 px-5 py-6 text-center">
+                        <p className="text-sm text-slate-500">No incoming friend requests.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-slate-800 pt-6">
+                    <div className="flex items-end justify-between gap-4">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
+                          Player Network
+                        </p>
+                        <h3 className="mt-1 text-lg font-black text-slate-100">My Friends</h3>
+                      </div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                        {friends.length} {friends.length === 1 ? "friend" : "friends"}
+                      </p>
+                    </div>
+
+                    {friends.length > 0 ? (
+                      <div className="mt-4 overflow-hidden rounded-xl border border-slate-800">
+                        <div className="divide-y divide-slate-800">
+                          {friends.map((friend) => (
+                            <div
+                              key={friend.id}
+                              className="flex flex-col gap-4 bg-slate-950/35 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="flex min-w-0 items-center gap-4">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-emerald-400/25 bg-emerald-400/10 font-black text-emerald-300">
+                                  {friend.username.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate font-black text-slate-100">
+                                    {friend.username}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Bullet {Math.round(friend.bulletRating)}
+                                    <span className="mx-2 text-slate-700">•</span>
+                                    Blitz {Math.round(friend.blitzRating)}
+                                    <span className="mx-2 text-slate-700">•</span>
+                                    Rapid {Math.round(friend.rapidRating)}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <span className="inline-flex w-fit items-center rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-emerald-300">
+                                  Friend
+                                </span>
+                                <RemoveFriendButton
+                                  friendshipId={friend.friendshipId}
+                                  friendUserId={friend.id}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/25 px-5 py-6 text-center">
+                        <p className="text-sm text-slate-500">No friends yet.</p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-6 border-t border-slate-800 pt-6">
+                  <form method="GET" action="/profile" className="flex flex-col gap-3 sm:flex-row">
+                    <input type="hidden" name="tab" value="friends" />
+                    <input
+                      type="search"
+                      name="q"
+                      defaultValue={friendSearchQuery}
+                      placeholder="Search username..."
+                      autoComplete="off"
+                      className="min-w-0 flex-1 rounded-xl border border-slate-700 bg-slate-950/70 px-4 py-3 text-sm font-semibold text-slate-100 outline-none transition placeholder:text-slate-600 focus:border-amber-400/60"
+                    />
+                    <button
+                      type="submit"
+                      className="rounded-xl border border-amber-400/30 bg-amber-400/10 px-6 py-3 text-sm font-black text-amber-300 transition hover:border-amber-300/55 hover:bg-amber-400/15"
+                    >
+                      Search Player
+                    </button>
+                  </form>
+
+                  {friendSearchQuery.length > 0 && friendSearchQuery.length < 2 ? (
+                    <p className="mt-4 text-sm text-slate-500">
+                      Enter at least 2 characters to search.
+                    </p>
+                  ) : null}
+
+                  {friendSearchQuery.length >= 2 ? (
+                    <div className="mt-5 overflow-hidden rounded-xl border border-slate-800">
+                      {friendSearchResults.length > 0 ? (
+                        <div className="divide-y divide-slate-800">
+                          {friendSearchResults.map((player) => (
+                            <div
+                              key={player.id}
+                              className="flex flex-col gap-4 bg-slate-950/35 px-5 py-4 sm:flex-row sm:items-center sm:justify-between"
+                            >
+                              <div className="flex min-w-0 items-center gap-4">
+                                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-amber-400/25 bg-amber-400/10 font-black text-amber-300">
+                                  {player.username.charAt(0).toUpperCase()}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="truncate font-black text-slate-100">
+                                    {player.username}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Bullet {Math.round(player.bulletRating)}
+                                    <span className="mx-2 text-slate-700">•</span>
+                                    Blitz {Math.round(player.blitzRating)}
+                                    <span className="mx-2 text-slate-700">•</span>
+                                    Rapid {Math.round(player.rapidRating)}
+                                  </p>
+                                </div>
+                              </div>
+                              {friends.some((friend) => friend.id === player.id) ? (
+                                <span className="rounded-xl border border-emerald-400/35 bg-emerald-400/10 px-5 py-2.5 text-sm font-black uppercase tracking-[0.12em] text-emerald-300">
+                                  Friend
+                                </span>
+                              ) : (
+                                <AddFriendButton
+                                  addresseeId={player.id}
+                                  initialStatus={
+                                    outgoingFriendRequestIds.has(player.id)
+                                      ? "sent"
+                                      : "idle"
+                                  }
+                                />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="px-6 py-10 text-center">
+                          <p className="font-black text-slate-300">No players found</p>
+                          <p className="mt-1 text-sm text-slate-500">
+                            Try another username.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-5 rounded-xl border border-dashed border-slate-800 bg-slate-950/25 px-6 py-10 text-center">
+                      <p className="text-sm text-slate-500">
+                        Search for a player to start building your friends list.
+                      </p>
+                    </div>
+                  )}
+                  </div>
+                </div>
               </section>
             ) : (
               <section className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_1.85fr]">
