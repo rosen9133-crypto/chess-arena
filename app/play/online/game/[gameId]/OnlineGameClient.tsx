@@ -504,13 +504,9 @@ export default function OnlineGameClient({
           setRomanBoardStyle(data.romanBoardStyle);
         }
 
-        if (
-          data.romanArenaEffects === "off" ||
-          data.romanArenaEffects === "low" ||
-          data.romanArenaEffects === "high"
-        ) {
-          setArenaEffects(data.romanArenaEffects);
-        }
+        // Roman Colosseum effects are part of the arena presentation.
+        // Do not restore the old temporary OFF/LOW/HIGH test preference.
+        setArenaEffects("high");
       } catch (error) {
         console.error(
           "ARENA PREFERENCES REQUEST ERROR:",
@@ -1570,12 +1566,42 @@ export default function OnlineGameClient({
           <>
             <div
               aria-hidden="true"
-              className="pointer-events-none absolute inset-0 -z-20 bg-cover bg-center bg-no-repeat"
-              style={{
-                backgroundImage:
-                  "url('/arenas/roman-colosseum/roman-colosseum.png')",
-              }}
-            />
+              className="roman-scene-layer pointer-events-none absolute -z-20"
+            >
+              <img
+                src="/arenas/roman-colosseum/roman-colosseum.png"
+                alt=""
+                className="absolute inset-0 h-full w-full"
+              />
+
+              <video
+                className="roman-real-fire roman-real-fire-test"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+              >
+                <source
+                  src="/arenas/roman-colosseum/roman-torch-flame-2.webm"
+                  type="video/webm"
+                />
+              </video>
+
+              <video
+                className="roman-real-fire roman-real-fire-high-right"
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
+              >
+                <source
+                  src="/arenas/roman-colosseum/roman-torch-flame-2.webm"
+                  type="video/webm"
+                />
+              </video>
+            </div>
             <div
               aria-hidden="true"
               className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(3,6,11,0.34)_0%,rgba(3,6,11,0.12)_22%,rgba(3,6,11,0.06)_58%,rgba(3,6,11,0.22)_100%),linear-gradient(180deg,rgba(2,6,12,0.08)_0%,rgba(2,6,12,0.04)_58%,rgba(2,6,12,0.18)_100%)]"
@@ -1588,22 +1614,6 @@ export default function OnlineGameClient({
                   arenaEffects === "high" ? "roman-fire-effects-high" : ""
                 }`}
               >
-                <video
-                  className={`roman-real-fire roman-real-fire-test ${
-                    arenaEffects === "high" ? "roman-real-fire-high" : ""
-                  }`}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
-                >
-                  <source
-                    src="/arenas/roman-colosseum/roman-fire-slow39.webm"
-                    type="video/webm"
-                  />
-                </video>
-
                 {arenaEffects === "high" && (
                   <>
                     <span className="roman-ember roman-ember-1" />
@@ -1639,31 +1649,8 @@ export default function OnlineGameClient({
             : ""
         }`}
       >
-        {activeArena.id === "roman-colosseum" && (
-          <div className="relative z-20 mx-auto flex w-fit items-center gap-1 rounded-full border border-amber-200/20 bg-black/55 p-1 shadow-[0_8px_24px_rgba(0,0,0,0.28)] backdrop-blur-md">
-            <span className="px-2 text-[9px] font-black uppercase tracking-[0.16em] text-amber-100/75">
-              Arena Effects
-            </span>
-            {(["off", "low", "high"] as ArenaEffectsLevel[]).map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => setArenaEffects(level)}
-                aria-pressed={arenaEffects === level}
-                className={`rounded-full px-2.5 py-1 text-[9px] font-black uppercase tracking-[0.12em] transition ${
-                  arenaEffects === level
-                    ? "bg-amber-300 text-slate-950 shadow-[0_0_14px_rgba(251,191,36,0.22)]"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {level}
-              </button>
-            ))}
-          </div>
-        )}
-
         <div
-          className={`relative z-10 mx-auto grid w-fit max-w-full items-start gap-[clamp(6px,0.7vw,10px)] lg:grid-cols-[minmax(0,calc(88dvh-clamp(82px,10dvh,104px)))_minmax(200px,18vw)] xl:grid-cols-[minmax(0,calc(90dvh-clamp(86px,10dvh,108px)))_minmax(210px,250px)] ${
+          className={`relative z-10 mx-auto grid w-fit max-w-full items-start gap-[clamp(6px,0.7vw,10px)] lg:grid-cols-[minmax(0,calc(91dvh-clamp(78px,9dvh,96px)))_minmax(200px,18vw)] xl:grid-cols-[minmax(0,calc(91dvh-clamp(78px,9dvh,96px)))_minmax(210px,250px)] ${
             activeArena.id === "roman-colosseum"
               ? "px-[clamp(12px,2.2vw,34px)] py-[clamp(8px,1.5dvh,18px)]"
               : ""
@@ -1671,7 +1658,7 @@ export default function OnlineGameClient({
         >
           <div
             ref={leftGameColumnRef}
-            className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(88dvh-clamp(82px,10dvh,104px)))] xl:w-[min(100%,calc(90dvh-clamp(86px,10dvh,108px)))]"
+            className="mx-auto w-full min-w-0 lg:w-[min(100%,calc(91dvh-clamp(78px,9dvh,96px)))] xl:w-[min(100%,calc(91dvh-clamp(78px,9dvh,96px)))]"
           >
           <PlayerClock
             username={opponent.username}
@@ -1978,6 +1965,15 @@ export default function OnlineGameClient({
 
     
       <style jsx global>{`
+        .roman-scene-layer {
+          left: 50%;
+          top: 50%;
+          width: max(100vw, calc(100vh * 1672 / 941));
+          height: max(100vh, calc(100vw * 941 / 1672));
+          transform: translate(-50%, -50%);
+          overflow: hidden;
+        }
+
         .roman-fire-effects {
           overflow: hidden;
         }
@@ -1992,16 +1988,18 @@ export default function OnlineGameClient({
         }
 
         .roman-real-fire-test {
-          left: 16.2%;
-          top: 39%;
+          left: 14.8%;
+          top: 37%;
           width: 12.5%;
           height: 29%;
         }
 
-        .roman-real-fire-high {
-          opacity: 1;
-          filter: saturate(1.12) brightness(1.08);
-          transform: scale(1.08);
+        .roman-real-fire-high-right {
+          left: 94.2%;
+          top: 41.5%;
+          width: 8%;
+          height: 21%;
+          opacity: 0.9;
         }
 
         .roman-fire-glow {

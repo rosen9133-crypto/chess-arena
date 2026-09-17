@@ -9,7 +9,7 @@ import {
   toggleSoundMuted,
 } from "@/lib/sounds/soundManager";
 
-export default function SoundControl() {
+export default function SoundControl({ appearance = "default" }: { appearance?: "default" | "computer" } = {}) {
   const [volume, setVolume] = useState(0.7);
   const [muted, setMuted] = useState(false);
 
@@ -82,10 +82,11 @@ export default function SoundControl() {
         : "🔊";
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-amber-300/25 bg-[linear-gradient(180deg,rgba(12,10,8,0.88),rgba(5,7,10,0.92))] px-3 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(251,191,36,0.06)]">
+    <div style={appearance === "computer" ? { background: "#0f172a", borderColor: "#334155", boxShadow: "none" } : undefined} className="flex shrink-0 items-center gap-3 rounded-xl border border-amber-300/25 bg-[linear-gradient(180deg,rgba(12,10,8,0.88),rgba(5,7,10,0.92))] px-3 py-2 shadow-[0_10px_28px_rgba(0,0,0,0.32),inset_0_1px_0_rgba(251,191,36,0.06)]">
       <button
         type="button"
         onClick={handleToggleMute}
+        style={appearance === "computer" ? { background: "transparent", borderColor: "transparent", boxShadow: "none" } : undefined}
         aria-label={
           muted ? "Unmute sound" : "Mute sound"
         }

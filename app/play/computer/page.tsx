@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import Image from "next/image";
 import { Chessboard } from "react-chessboard";
 import type { Square } from "chess.js";
 
@@ -9,6 +11,20 @@ import GameOverDialog from "@/components/GameOverDialog";
 import { MoveHistory } from "@/components/MoveHistory";
 import SoundControl from "@/components/SoundControl";
 import { useChessGame } from "@/hooks/useChessGame";
+
+const computerNavigation = [
+  ["Home", "⌂", "/dashboard"],
+  ["Play Online", "ϟ", "/play/online"],
+  ["Play Computer", "♞", "/play/computer"],
+  ["Tournaments", "♕", "/tournaments"],
+  ["Puzzles", "✚", "/puzzles"],
+  ["Learn", "▤", "/learn"],
+  ["Arenas", "♜", "/arenas"],
+  ["Community", "♟", "/community"],
+  ["Leaderboard", "★", "/leaderboard"],
+  ["Profile", "●", "/profile"],
+  ["Shop", "◇", "/shop"],
+] as const;
 
 type OpeningMatch = {
   eco: string;
@@ -231,6 +247,8 @@ export default function PlayPage() {
   const [isResignConfirmOpen, setIsResignConfirmOpen] =
     useState(false);
   const [opening, setOpening] = useState<OpeningMatch | null>(null);
+  const gameLayoutRef = useRef<HTMLDivElement | null>(null);
+  const historyPanelRef = useRef<HTMLElement | null>(null);
   const boardAreaRef = useRef<HTMLElement | null>(null);
   const opponentBarRef = useRef<HTMLDivElement | null>(null);
   const boardFrameRef = useRef<HTMLDivElement | null>(null);
@@ -484,8 +502,14 @@ export default function PlayPage() {
     const updateBoardSize = () => {
       const areaRect = boardArea.getBoundingClientRect();
       const viewportHeight = document.documentElement.clientHeight;
-      const availableWidth = boardArea.clientWidth;
-      const availableHeight = Math.max(0, viewportHeight - areaRect.top);
+      const layout = gameLayoutRef.current;
+      const panel = historyPanelRef.current;
+      const isDesktop = window.matchMedia("(min-width: 1024px)").matches;
+      const availableWidth = isDesktop && layout && panel
+        ? Math.max(0, layout.clientWidth - panel.getBoundingClientRect().width -
+            (Number.parseFloat(window.getComputedStyle(layout).columnGap) || 0))
+        : boardArea.clientWidth;
+      const availableHeight = Math.max(0, viewportHeight - areaRect.top - 8);
 
       const opponentBarHeight = opponentBar.getBoundingClientRect().height;
       const playerBarHeight = playerBar.getBoundingClientRect().height;
@@ -521,6 +545,7 @@ export default function PlayPage() {
 
     const resizeObserver = new ResizeObserver(updateBoardSize);
     resizeObserver.observe(boardArea);
+    if (gameLayoutRef.current) resizeObserver.observe(gameLayoutRef.current);
     resizeObserver.observe(opponentBar);
     resizeObserver.observe(boardFrame);
     resizeObserver.observe(playerBar);
@@ -573,7 +598,28 @@ export default function PlayPage() {
         : "Random";
 
   return (
-    <main className="min-h-screen bg-slate-950 px-4 py-2 text-white sm:px-6">
+    <main className="min-h-screen bg-slate-950 text-white lg:pl-[208px]">
+      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[208px] flex-col overflow-y-auto border-r border-slate-800 bg-[#080d15] px-3 py-4 lg:flex" aria-label="Main navigation">
+        <Link href="/dashboard" className="mb-3 flex shrink-0 flex-col items-center gap-2 py-2 text-center">
+          <Image src="/images/chess-arena-logo.png" alt="Chess Arena logo" width={80} height={80} className="h-20 w-20 object-contain" />
+          <p className="text-lg font-black tracking-wide text-white">Chess <span className="text-amber-300">Arena</span></p>
+        </Link>
+        <nav className="flex shrink-0 flex-col gap-1">
+          {computerNavigation.map(([label, icon, href]) => (
+            <Link key={href} href={href} aria-current={href === "/play/computer" ? "page" : undefined}
+              className={`flex min-h-[36px] items-center gap-3 rounded-xl border px-3 py-[clamp(6px,1.15vh,12px)] text-[13px] font-bold transition ${href === "/play/computer" ? "border-amber-400/45 bg-amber-400/10 text-amber-300" : "border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-800/50 hover:text-white"}`}>
+              <span className="w-5 shrink-0 text-center text-base" aria-hidden="true">{icon}</span>
+              {label}
+            </Link>
+          ))}
+        </nav>
+        <div className="mt-auto shrink-0 pt-5">
+          <Link href="/gold-pass" className="block rounded-xl border border-amber-400/30 bg-amber-400/10 p-3">
+            <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-300">Gold Pass</p>
+            <p className="mt-1 text-[11px] leading-4 text-slate-400">Unlock premium Arena cosmetics.</p>
+          </Link>
+        </div>
+      </aside>
       {isResignConfirmOpen && hasGameStarted && !isGameOver && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
@@ -805,17 +851,15 @@ export default function PlayPage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-[1450px]">
-        <div className="relative grid items-start gap-4 xl:min-h-[calc(100dvh-1rem)] xl:grid-cols-[minmax(0,1fr)_minmax(320px,380px)] xl:justify-center">
-          <div className="pointer-events-none absolute left-0 top-3 hidden xl:block">
-            <p className="text-xs font-black uppercase tracking-[0.24em] text-yellow-400">
-              Chess Arena
-            </p>
-          </div>
-
-          <section ref={boardAreaRef} className="w-full">
+      <div className="w-full px-3 py-2">
+        <div
+          ref={gameLayoutRef}
+          className="grid items-start gap-3 lg:min-h-[calc(100dvh-1rem)] lg:grid-cols-[minmax(0,var(--computer-board-width,1fr))_clamp(280px,25vw,320px)]"
+          style={{ "--computer-board-width": adaptiveBoardSize ? `${adaptiveBoardSize}px` : "1fr" } as React.CSSProperties}
+        >
+          <section ref={boardAreaRef} className="min-w-0 w-full">
             <div
-              className="mx-auto w-full"
+              className="mx-auto w-full lg:ml-0 lg:mr-auto"
               style={
                 adaptiveBoardSize
                   ? { width: `${adaptiveBoardSize}px` }
@@ -882,15 +926,11 @@ export default function PlayPage() {
 
           </section>
 
-          <aside className="flex w-full flex-col xl:sticky xl:top-2 xl:h-[calc(100dvh-1rem)] xl:min-h-0">
-            <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/55 p-3 shadow-2xl shadow-black/20 backdrop-blur-sm">
-              <div className="flex min-h-[52px] items-center rounded-xl border border-slate-800 bg-slate-950/55 px-3 py-2">
-                <div className="w-full">
-                  <SoundControl />
-                </div>
-              </div>
+          <aside ref={historyPanelRef} className="flex min-w-0 w-full flex-col lg:sticky lg:top-2 lg:h-[calc(100dvh-1rem)] lg:min-h-0">
+            <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto">
+              <SoundControl appearance="computer" />
 
-              <div className="rounded-xl border border-slate-800 bg-slate-950/55 px-3 py-2">
+              <div className="rounded-xl border border-slate-800 bg-slate-900 px-3 py-2">
                 <div className="flex items-center gap-2">
                   <span className="text-sm" aria-hidden="true">♟</span>
                   <p className="text-[9px] font-black uppercase tracking-[0.2em] text-yellow-400">
@@ -917,7 +957,7 @@ export default function PlayPage() {
               </div>
 
               {!hasGameStarted && (
-                <div className="w-full rounded-xl border border-slate-800 bg-slate-950/55 p-3">
+                <div className="w-full rounded-xl border border-slate-800 bg-slate-900 p-3">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-[10px] font-black uppercase tracking-[0.22em] text-yellow-400">
@@ -952,6 +992,7 @@ export default function PlayPage() {
               )}
 
             <MoveHistory
+              appearance="computer"
               history={history}
               currentMoveIndex={currentMoveIndex}
               result={isGameOver ? gameOverDetails.score : undefined}

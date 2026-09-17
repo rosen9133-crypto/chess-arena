@@ -6,6 +6,7 @@ import {
 } from "react";
 
 type MoveHistoryProps = {
+  appearance?: "default" | "computer";
   history: string[];
   currentMoveIndex: number;
   result?: string;
@@ -17,6 +18,7 @@ type MoveHistoryProps = {
 };
 
 export function MoveHistory({
+  appearance = "default",
   history,
   currentMoveIndex,
   result,
@@ -85,7 +87,7 @@ export function MoveHistory({
     "rounded-lg border border-amber-200/15 bg-black/35 px-2 py-1 text-sm font-bold text-stone-100 shadow-inner transition hover:border-amber-400/55 hover:bg-amber-300/10 hover:text-amber-300 active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:border-amber-200/15 disabled:hover:bg-black/35 disabled:hover:text-stone-100";
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-amber-300/25 bg-[linear-gradient(180deg,rgba(12,10,8,0.88),rgba(5,7,10,0.92))] p-3 text-white shadow-[0_16px_38px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(251,191,36,0.06)]">
+    <div style={appearance === "computer" ? { background: "#0f172a", boxShadow: "none" } : undefined} className="flex min-h-0 w-full flex-1 flex-col overflow-hidden rounded-xl border border-amber-300/25 bg-[linear-gradient(180deg,rgba(12,10,8,0.88),rgba(5,7,10,0.92))] p-3 text-white shadow-[0_16px_38px_rgba(0,0,0,0.38),inset_0_1px_0_rgba(251,191,36,0.06)]">
       <h2 className="mb-2 text-lg font-bold tracking-wide text-amber-400">
         📜 Move History
       </h2>
@@ -137,7 +139,7 @@ export function MoveHistory({
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-amber-200/15 bg-black/30 shadow-inner">
+        <div style={appearance === "computer" ? { background: "#0f172a" } : undefined} className="flex min-h-0 flex-1 overflow-hidden rounded-lg border border-amber-200/15 bg-black/30 shadow-inner">
           <button
             type="button"
             onClick={onFirstMove}
@@ -147,7 +149,7 @@ export function MoveHistory({
           </button>
         </div>
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-amber-200/15 bg-black/25 shadow-inner">
+        <div style={appearance === "computer" ? { background: "#0f172a" } : undefined} className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-amber-200/15 bg-black/25 shadow-inner">
           <div className="grid shrink-0 grid-cols-[38px_1fr_1fr] border-b border-amber-200/15 bg-black/40 px-2 py-1 text-xs font-bold text-amber-400">
             <div>#</div>
             <div>⚪ White</div>
