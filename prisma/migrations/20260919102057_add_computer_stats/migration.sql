@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "User" ADD COLUMN     "computerDraws" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "computerLosses" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "computerWins" INTEGER NOT NULL DEFAULT 0;

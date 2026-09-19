@@ -9,6 +9,8 @@ import AcceptFriendButton from "@/components/AcceptFriendButton";
 import DeclineFriendButton from "@/components/DeclineFriendButton";
 import RemoveFriendButton from "@/components/RemoveFriendButton";
 import BlockUserButton from "@/components/BlockUserButton";
+import ChallengeFriendButton from "@/components/ChallengeFriendButton";
+import IncomingGameChallengeRow from "@/components/IncomingGameChallengeRow";
 import UnblockUserButton from "@/components/UnblockUserButton";
 import FriendsRealtimeSync from "@/components/FriendsRealtimeSync";
 import { prisma } from "@/lib/prisma";
@@ -139,6 +141,34 @@ export default async function ProfilePage({
           select: {
             id: true,
             requester: {
+              select: {
+                id: true,
+                username: true,
+                bulletRating: true,
+                blitzRating: true,
+                rapidRating: true,
+              },
+            },
+          },
+        })
+      : [];
+
+  const incomingGameChallenges =
+    activeTab === "friends"
+      ? await prisma.gameChallenge.findMany({
+          where: {
+            challengedId: user.id,
+            status: "PENDING",
+          },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            timeControl: true,
+            initialTimeSeconds: true,
+            incrementSeconds: true,
+            rated: true,
+            createdAt: true,
+            challenger: {
               select: {
                 id: true,
                 username: true,
@@ -1086,6 +1116,50 @@ export default async function ProfilePage({
                     <div className="flex items-end justify-between gap-4">
                       <div>
                         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
+                          Game Challenges
+                        </p>
+                        <h3 className="mt-1 text-lg font-black text-slate-100">
+                          Incoming Challenges
+                        </h3>
+                      </div>
+                      <p className="text-xs font-bold uppercase tracking-[0.14em] text-slate-500">
+                        {incomingGameChallenges.length}{" "}
+                        {incomingGameChallenges.length === 1 ? "challenge" : "challenges"}
+                      </p>
+                    </div>
+
+                    {incomingGameChallenges.length > 0 ? (
+                      <div className="mt-4 overflow-hidden rounded-xl border border-amber-400/20">
+                        <div className="divide-y divide-slate-800">
+                          {incomingGameChallenges.map((challenge) => (
+                            <IncomingGameChallengeRow
+                              key={challenge.id}
+                              challengeId={challenge.id}
+                              challengerId={challenge.challenger.id}
+                              challengerUsername={challenge.challenger.username}
+                              bulletRating={challenge.challenger.bulletRating}
+                              blitzRating={challenge.challenger.blitzRating}
+                              rapidRating={challenge.challenger.rapidRating}
+                              timeControlLabel={timeControl(challenge.initialTimeSeconds, challenge.incrementSeconds)}
+                              timeControl={challenge.timeControl}
+                              rated={challenge.rated}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-4 rounded-xl border border-dashed border-slate-800 bg-slate-950/25 px-5 py-6 text-center">
+                        <p className="text-sm text-slate-500">
+                          No incoming game challenges.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mb-6">
+                    <div className="flex items-end justify-between gap-4">
+                      <div>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-amber-400">
                           Friend Requests
                         </p>
                         <h3 className="mt-1 text-lg font-black text-slate-100">Incoming Requests</h3>
@@ -1178,6 +1252,11 @@ export default async function ProfilePage({
                                 <span className="inline-flex w-fit items-center rounded-lg border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-emerald-300">
                                   Friend
                                 </span>
+                                <ChallengeFriendButton
+                                  currentUserId={user.id}
+                                  friendUserId={friend.id}
+                                  username={friend.username}
+                                />
                                 <RemoveFriendButton
                                   friendshipId={friend.friendshipId}
                                   friendUserId={friend.id}

@@ -68,6 +68,9 @@ export default async function DashboardPage() {
       wins: true,
       losses: true,
       draws: true,
+      computerWins: true,
+      computerLosses: true,
+      computerDraws: true,
     },
   });
 
@@ -103,8 +106,8 @@ export default async function DashboardPage() {
   });
 
   const totalGames = user.wins + user.losses + user.draws;
-  const winRate =
-    totalGames > 0 ? Math.round((user.wins / totalGames) * 100) : 0;
+  const computerTotalGames =
+    user.computerWins + user.computerLosses + user.computerDraws;
 
   return (
     <main className="min-h-screen bg-[radial-gradient(circle_at_top,_#172033_0%,_#0f172a_42%,_#080d18_100%)] text-white">
@@ -333,6 +336,14 @@ export default async function DashboardPage() {
             margin: 0;
           }
 
+          .player-hub-tabs:has(#player-hub-computer:checked) .player-hub-online-content {
+            display: none;
+          }
+
+          .player-hub-tabs:has(#player-hub-computer:checked) .player-hub-computer-content {
+            display: block;
+          }
+
           @media (min-width: 1280px) and (max-height: 760px) {
             .chess-arena-sidebar .sidebar-footer {
               gap: clamp(0.22rem, 0.5vh, 0.4rem);
@@ -404,7 +415,7 @@ export default async function DashboardPage() {
               </div>
 
               {/* Wide-screen motto matches the reference hierarchy instead of becoming another card. */}
-              <div className="absolute right-[1.8%] top-[47%] z-20 hidden w-[138px] -translate-y-1/2 border-l border-amber-400/30 pl-5 min-[1280px]:block">
+              <div className="absolute right-[1.8%] top-[34%] z-20 hidden w-[138px] -translate-y-1/2 border-l border-amber-400/30 pl-5 min-[1280px]:block">
                 <div className="mb-5 h-px w-10 bg-amber-400" />
                 <p className="font-serif text-[13px] uppercase leading-[1.85] tracking-[0.25em] text-slate-100/90">
                   Different<br />
@@ -415,10 +426,59 @@ export default async function DashboardPage() {
                 </p>
               </div>
 
-              <div className="absolute bottom-4 right-4 z-20 hidden rounded-lg border border-amber-400/20 bg-[#060b12]/92 px-4 py-2.5 backdrop-blur-md lg:block min-[1280px]:right-[12.5%]">
-                <p className="text-[10px] font-black uppercase tracking-[0.22em] text-amber-400">Player Hub</p>
-                <p className="mt-1 text-lg font-black">{totalGames} games played</p>
-                <p className="text-xs text-slate-400">{user.wins} wins · {user.draws} draws · {user.losses} defeats</p>
+              <div className="player-hub-tabs absolute bottom-4 right-4 z-20 hidden min-w-[292px] rounded-lg border border-amber-400/30 bg-[#060b12]/92 px-4 py-2.5 backdrop-blur-md lg:block">
+                <input
+                  id="player-hub-online"
+                  name="player-hub-view"
+                  type="radio"
+                  defaultChecked
+                  className="peer/online sr-only"
+                />
+                <input
+                  id="player-hub-computer"
+                  name="player-hub-view"
+                  type="radio"
+                  className="peer/computer sr-only"
+                />
+
+                <div className="flex items-center justify-between gap-4 border-b border-slate-700/70 pb-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-[0.22em] text-slate-300">
+                    Player Hub
+                  </p>
+                  <div className="flex items-center gap-3 text-[11px] font-bold">
+                    <label
+                      htmlFor="player-hub-online"
+                      className="cursor-pointer border-b-2 border-transparent pb-1 text-slate-400 transition hover:text-white peer-checked/online:border-amber-400 peer-checked/online:text-amber-300"
+                    >
+                      Online
+                    </label>
+                    <span className="text-slate-700">|</span>
+                    <label
+                      htmlFor="player-hub-computer"
+                      className="cursor-pointer border-b-2 border-transparent pb-1 text-slate-400 transition hover:text-white peer-checked/computer:border-amber-400 peer-checked/computer:text-amber-300"
+                    >
+                      Computer
+                    </label>
+                  </div>
+                </div>
+
+                <div className="player-hub-online-content">
+                  <p className="mt-2 text-lg font-black">{totalGames} games played</p>
+                  <p className="text-xs text-slate-400">
+                    {user.wins} wins · {user.draws} draws · {user.losses} defeats
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Rapid <span className="font-bold text-amber-300">{Math.round(user.rapidRating)}</span>
+                  </p>
+                </div>
+
+                <div className="player-hub-computer-content hidden">
+                  <p className="mt-2 text-lg font-black">{computerTotalGames} games played</p>
+                  <p className="text-xs text-slate-400">
+                    {user.computerWins} wins · {user.computerDraws} draws · {user.computerLosses} defeats
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">Stockfish · No rating impact</p>
+                </div>
               </div>
             </section>
 

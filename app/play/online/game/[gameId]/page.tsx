@@ -21,56 +21,58 @@ export default async function OnlineGamePage({
 
   const { gameId } = await params;
 
-  const currentUser = await prisma.user.findUnique({
-    where: {
-      email: session.user.email,
-    },
-    select: {
-      id: true,
-      username: true,
-    },
-  });
+  const [currentUser, game] = await Promise.all([
+    prisma.user.findUnique({
+      where: {
+        email: session.user.email,
+      },
+      select: {
+        id: true,
+        username: true,
+      },
+    }),
+
+    prisma.game.findUnique({
+      where: {
+        id: gameId,
+      },
+      select: {
+        id: true,
+        status: true,
+        result: true,
+        timeControl: true,
+        rated: true,
+        initialTimeSeconds: true,
+        incrementSeconds: true,
+        startedAt: true,
+        endedAt: true,
+
+        whitePlayer: {
+          select: {
+            id: true,
+            username: true,
+            bulletRating: true,
+            blitzRating: true,
+            rapidRating: true,
+          },
+        },
+
+        blackPlayer: {
+          select: {
+            id: true,
+            username: true,
+            bulletRating: true,
+            blitzRating: true,
+            rapidRating: true,
+          },
+        },
+      },
+    }),
+  ]);
 
   if (!currentUser) {
     redirect("/login");
   }
-
-  const game = await prisma.game.findUnique({
-    where: {
-      id: gameId,
-    },
-    select: {
-      id: true,
-      status: true,
-      result: true,
-      timeControl: true,
-      rated: true,
-      initialTimeSeconds: true,
-      incrementSeconds: true,
-      startedAt: true,
-      endedAt: true,
-
-      whitePlayer: {
-        select: {
-          id: true,
-          username: true,
-          bulletRating: true,
-          blitzRating: true,
-          rapidRating: true,
-        },
-      },
-
-      blackPlayer: {
-        select: {
-          id: true,
-          username: true,
-          bulletRating: true,
-          blitzRating: true,
-          rapidRating: true,
-        },
-      },
-    },
-  });
 
   if (!game) {
     notFound();

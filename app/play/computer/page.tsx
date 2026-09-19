@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { getSession } from "next-auth/react";
+import LogoutButton from "@/components/LogoutButton";
 import Image from "next/image";
 import { Chessboard } from "react-chessboard";
 import type { Square } from "chess.js";
@@ -119,7 +121,7 @@ function CompactPlayerBar({
           : "border-slate-700 bg-slate-950/85"
       }`}
     >
-      <div className="grid min-w-0 grid-cols-[minmax(max-content,0.9fr)_minmax(0,1.35fr)_auto] items-center gap-x-4">
+      <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto_auto] sm:grid-cols-[max-content_minmax(0,1fr)_auto_auto] items-center gap-x-2">
         <div className="flex min-w-0 items-center gap-2">
           <span
             className={`h-2.5 w-2.5 shrink-0 rounded-full ${
@@ -130,21 +132,20 @@ function CompactPlayerBar({
           />
 
           <div className="min-w-0">
-            <p className="text-[8px] font-bold uppercase leading-none tracking-[0.2em] text-slate-500">
-              {subtitle}
-            </p>
-
-            <div className="flex min-w-0 items-center gap-2">
-              <p className="truncate text-[15px] font-black leading-tight text-white">
-                {name}
+            <div className="flex items-center gap-2">
+              <p className="text-[8px] font-bold uppercase leading-none tracking-[0.2em] text-slate-500">
+                {subtitle}
               </p>
-
-              {active && (
-                <span className="shrink-0 text-[9px] font-bold uppercase tracking-wider text-emerald-400">
-                  ● LIVE
-                </span>
-              )}
+              <span
+                className={`text-[8px] font-bold uppercase leading-none tracking-wider text-emerald-400 ${active ? "" : "invisible"}`}
+                aria-hidden={!active}
+              >
+                ● LIVE
+              </span>
             </div>
+            <p className="break-words text-[15px] font-black leading-tight text-white sm:whitespace-nowrap">
+              {name}
+            </p>
           </div>
         </div>
 
@@ -158,13 +159,16 @@ function CompactPlayerBar({
               />
             ))}
 
-            {materialAdvantage > 0 && (
-              <span className="ml-1 shrink-0 text-xs font-black text-yellow-300">
-                +{materialAdvantage}
-              </span>
-            )}
           </div>
         </div>
+
+        <span
+          className={`min-w-[3ch] whitespace-nowrap text-right text-xs font-black tabular-nums text-yellow-300 ${materialAdvantage > 0 ? "" : "invisible"}`}
+          aria-label={materialAdvantage > 0 ? `Material advantage: ${materialAdvantage}` : undefined}
+          aria-hidden={materialAdvantage <= 0}
+        >
+          +{materialAdvantage}
+        </span>
 
         <p
           className={`justify-self-end whitespace-nowrap pr-1 font-mono text-[22px] font-black leading-none tabular-nums sm:text-[26px] ${timeColorClass}`}
@@ -176,6 +180,26 @@ function CompactPlayerBar({
   );
 }
 export default function PlayPage() {
+  const [signedInName, setSignedInName] = useState<string | null>(null);
+  const [isSessionLoaded, setIsSessionLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    void getSession()
+      .then((session) => {
+        if (!cancelled) {
+          setSignedInName(session?.user ? session.user.name || "Player" : null);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setSignedInName(null);
+      })
+      .finally(() => {
+        if (!cancelled) setIsSessionLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
   const {
     game,
     displayGame,
@@ -599,27 +623,63 @@ export default function PlayPage() {
 
   return (
     <main className="min-h-screen bg-slate-950 text-white lg:pl-[208px]">
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-[208px] flex-col overflow-y-auto border-r border-slate-800 bg-[#080d15] px-3 py-4 lg:flex" aria-label="Main navigation">
+      <aside className="computer-sidebar fixed inset-y-0 left-0 z-30 hidden w-[208px] flex-col overflow-hidden border-r border-slate-800 bg-[#080d15] px-3 py-4 lg:flex" aria-label="Main navigation">
         <Link href="/dashboard" className="mb-3 flex shrink-0 flex-col items-center gap-2 py-2 text-center">
           <Image src="/images/chess-arena-logo.png" alt="Chess Arena logo" width={80} height={80} className="h-20 w-20 object-contain" />
           <p className="text-lg font-black tracking-wide text-white">Chess <span className="text-amber-300">Arena</span></p>
         </Link>
-        <nav className="flex shrink-0 flex-col gap-1">
+        <nav className="computer-nav-scrollbar flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto pr-1">
           {computerNavigation.map(([label, icon, href]) => (
             <Link key={href} href={href} aria-current={href === "/play/computer" ? "page" : undefined}
-              className={`flex min-h-[36px] items-center gap-3 rounded-xl border px-3 py-[clamp(6px,1.15vh,12px)] text-[13px] font-bold transition ${href === "/play/computer" ? "border-amber-400/45 bg-amber-400/10 text-amber-300" : "border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-800/50 hover:text-white"}`}>
+              className={`flex min-h-[36px] shrink-0 items-center gap-3 rounded-xl border px-3 py-[clamp(6px,1.15vh,12px)] text-[13px] font-bold transition ${href === "/play/computer" ? "border-amber-400/45 bg-amber-400/10 text-amber-300" : "border-transparent text-slate-300 hover:border-slate-700 hover:bg-slate-800/50 hover:text-white"}`}>
               <span className="w-5 shrink-0 text-center text-base" aria-hidden="true">{icon}</span>
               {label}
             </Link>
           ))}
         </nav>
-        <div className="mt-auto shrink-0 pt-5">
+        <div className="shrink-0 space-y-2 pt-3">
           <Link href="/gold-pass" className="block rounded-xl border border-amber-400/30 bg-amber-400/10 p-3">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-amber-300">Gold Pass</p>
             <p className="mt-1 text-[11px] leading-4 text-slate-400">Unlock premium Arena cosmetics.</p>
           </Link>
+          {signedInName ? (
+            <>
+              <Link href="/profile" className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/65 p-2 transition hover:border-slate-600">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-amber-400/25 bg-slate-950 text-sm font-black text-amber-300">
+                  {signedInName.slice(0, 1).toUpperCase()}
+                </span>
+                <span className="min-w-0 truncate text-sm font-bold text-white" title={signedInName}>{signedInName}</span>
+              </Link>
+              <LogoutButton compact />
+            </>
+          ) : isSessionLoaded ? (
+            <Link href="/login" className="block rounded-xl border border-slate-700 px-3 py-2 text-center text-sm font-bold text-slate-200 hover:bg-slate-800">Sign In</Link>
+          ) : (
+            <p className="px-2 py-2 text-xs text-slate-500">Loading profile…</p>
+          )}
         </div>
       </aside>
+      <style jsx global>{`
+        .computer-nav-scrollbar {
+          scrollbar-width: thin;
+          scrollbar-color: transparent transparent;
+        }
+        .computer-sidebar:hover .computer-nav-scrollbar {
+          scrollbar-color: rgba(245, 158, 11, 0.42) transparent;
+        }
+        .computer-nav-scrollbar::-webkit-scrollbar { width: 5px; }
+        .computer-nav-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .computer-nav-scrollbar::-webkit-scrollbar-thumb {
+          background: transparent;
+          border-radius: 999px;
+        }
+        .computer-sidebar:hover .computer-nav-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(245, 158, 11, 0.42);
+        }
+        .computer-sidebar:hover .computer-nav-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(250, 204, 21, 0.68);
+        }
+      `}</style>
       {isResignConfirmOpen && hasGameStarted && !isGameOver && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
@@ -903,7 +963,7 @@ export default function PlayPage() {
 
               <div ref={playerBarRef} className="mt-1.5">
                 <CompactPlayerBar
-                  name="Rosen"
+                  name={signedInName ?? (isSessionLoaded ? "Guest" : "Player")}
                   subtitle="You"
                   time={playerTime}
                   active={isPlayerClockActive}
@@ -1014,7 +1074,7 @@ export default function PlayPage() {
                     type="button"
                     onClick={handleOfferDraw}
                     disabled={!canOfferDraw || isEvaluatingDrawOffer}
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {isEvaluatingDrawOffer ? "Thinking..." : "½ Draw"}
                   </button>
@@ -1023,7 +1083,7 @@ export default function PlayPage() {
                     type="button"
                     onClick={handleUndo}
                     disabled={!canUndo}
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     ↩ Undo
                   </button>
@@ -1031,7 +1091,7 @@ export default function PlayPage() {
                   <button
                     type="button"
                     onClick={handleFlipBoard}
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-yellow-400/50 hover:bg-slate-700 active:scale-[0.98]"
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-yellow-400/50 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   >
                     🔄 Flip
                   </button>
@@ -1039,7 +1099,7 @@ export default function PlayPage() {
                   <button
                     type="button"
                     onClick={() => setIsResignConfirmOpen(true)}
-                    className="flex min-h-12 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-red-400/60 hover:bg-slate-700 active:scale-[0.98]"
+                    className="flex min-h-12 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2.5 text-center text-xs font-bold text-slate-100 transition hover:border-red-400/60 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   >
                     🏳 Resign
                   </button>
@@ -1054,7 +1114,7 @@ export default function PlayPage() {
                 <button
                   type="button"
                   onClick={handleNewGame}
-                  className="mt-2.5 w-full rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2.5 text-sm font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98]"
+                  className="mt-2.5 w-full rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-4 py-2.5 text-sm font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                 >
                   New Game
                 </button>
@@ -1082,7 +1142,7 @@ export default function PlayPage() {
                   <button
                     type="button"
                     onClick={handleAnalysis}
-                    className="flex min-h-11 items-center justify-center rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-2 py-2 text-center text-xs font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98]"
+                    className="flex min-h-11 items-center justify-center rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-2 py-2 text-center text-xs font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   >
                     ♟ Review
                   </button>
@@ -1090,7 +1150,7 @@ export default function PlayPage() {
                   <button
                     type="button"
                     onClick={handleRematch}
-                    className="flex min-h-11 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2 text-center text-xs font-bold text-slate-100 transition hover:border-emerald-400/60 hover:bg-slate-700 active:scale-[0.98]"
+                    className="flex min-h-11 items-center justify-center rounded-xl border border-yellow-400/40 bg-yellow-400/10 px-2 py-2 text-center text-xs font-black text-yellow-300 transition hover:border-yellow-400/70 hover:bg-yellow-400/20 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   >
                     ↻ Rematch
                   </button>
@@ -1098,7 +1158,7 @@ export default function PlayPage() {
                   <button
                     type="button"
                     onClick={handleShare}
-                    className="flex min-h-11 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-slate-700 active:scale-[0.98]"
+                    className="flex min-h-11 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2 text-center text-xs font-bold text-slate-100 transition hover:border-sky-400/60 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   >
                     ↗ Share
                   </button>
@@ -1106,7 +1166,7 @@ export default function PlayPage() {
                   <button
                     type="button"
                     onClick={handleFlipBoard}
-                    className="flex min-h-11 items-center justify-center rounded-xl border border-slate-600 bg-slate-800 px-2 py-2 text-center text-xs font-bold text-slate-100 transition hover:border-yellow-400/50 hover:bg-slate-700 active:scale-[0.98]"
+                    className="flex min-h-11 items-center justify-center rounded-xl border border-amber-200/20 bg-black/35 px-2 py-2 text-center text-xs font-bold text-slate-100 transition hover:border-yellow-400/50 hover:bg-white/10 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   >
                     🔄 Flip
                   </button>
@@ -1115,7 +1175,7 @@ export default function PlayPage() {
                 <button
                   type="button"
                   onClick={handleNewGame}
-                  className="mt-2.5 w-full rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-yellow-300 active:scale-[0.98]"
+                  className="mt-2.5 w-full rounded-xl bg-yellow-400 px-4 py-2.5 text-sm font-black text-slate-950 transition hover:bg-yellow-300 active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                 >
                   New Game
                 </button>

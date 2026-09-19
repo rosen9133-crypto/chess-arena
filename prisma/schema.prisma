@@ -52,6 +52,13 @@ enum FriendshipStatus {
   ACCEPTED
 }
 
+enum GameChallengeStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELLED
+}
+
 model User {
   id       String @id @default(cuid())
   username String @unique
@@ -76,6 +83,10 @@ model User {
   losses Int @default(0)
   draws  Int @default(0)
 
+  computerWins   Int @default(0)
+  computerLosses Int @default(0)
+  computerDraws  Int @default(0)
+
   activeArena       String @default("classic")
   romanBoardStyle   String @default("roman")
   romanArenaEffects String @default("high")
@@ -85,6 +96,9 @@ model User {
 
   sentFriendships     Friendship[] @relation("FriendshipRequester")
   receivedFriendships Friendship[] @relation("FriendshipAddressee")
+
+  sentGameChallenges     GameChallenge[] @relation("GameChallengeChallenger")
+  receivedGameChallenges GameChallenge[] @relation("GameChallengeChallenged")
 
   blockedUsers  UserBlock[] @relation("UserBlockBlocker")
   blockedByUsers UserBlock[] @relation("UserBlockBlocked")
@@ -159,6 +173,30 @@ model Friendship {
   @@unique([requesterId, addresseeId])
   @@index([requesterId, status])
   @@index([addresseeId, status])
+  @@index([createdAt])
+}
+
+model GameChallenge {
+  id String @id @default(cuid())
+
+  challengerId String
+  challengedId String
+
+  challenger User @relation("GameChallengeChallenger", fields: [challengerId], references: [id], onDelete: Cascade)
+  challenged User @relation("GameChallengeChallenged", fields: [challengedId], references: [id], onDelete: Cascade)
+
+  timeControl        GameTimeControl
+  initialTimeSeconds Int
+  incrementSeconds   Int @default(0)
+  rated              Boolean @default(true)
+
+  status GameChallengeStatus @default(PENDING)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([challengerId, status])
+  @@index([challengedId, status])
   @@index([createdAt])
 }
 

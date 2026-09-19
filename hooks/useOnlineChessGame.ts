@@ -193,9 +193,6 @@ export function useOnlineChessGame({
   const [clockNowMs, setClockNowMs] =
     useState(() => Date.now());
 
-  const [clockAnchorMs, setClockAnchorMs] =
-    useState<number | null>(null);
-
   const [serverActiveClock, setServerActiveClock] =
     useState<ChessColor | null>(null);
 
@@ -293,10 +290,10 @@ export function useOnlineChessGame({
     isGameOver ? null : serverActiveClock;
 
   const clockElapsedMs =
-    clockAnchorMs !== null && activeClock
+    clockStartedAt && activeClock
       ? Math.max(
           0,
-          clockNowMs - clockAnchorMs,
+          clockNowMs - new Date(clockStartedAt).getTime(),
         )
       : 0;
 
@@ -366,7 +363,7 @@ export function useOnlineChessGame({
 
   const isClockRunning =
     !isGameOver &&
-    clockAnchorMs !== null &&
+    clockStartedAt !== null &&
     displayedWhiteTimeMs > 0 &&
     displayedBlackTimeMs > 0;
 
@@ -534,7 +531,7 @@ export function useOnlineChessGame({
   );
 
   useEffect(() => {
-    if (clockAnchorMs === null || isGameOver) {
+    if (!clockStartedAt || isGameOver) {
       return;
     }
 
@@ -547,7 +544,7 @@ export function useOnlineChessGame({
     return () => {
       window.clearInterval(intervalId);
     };
-  }, [clockAnchorMs, isGameOver]);
+  }, [clockStartedAt, isGameOver]);
 
   const applyServerClock = useCallback(
     (
@@ -556,73 +553,16 @@ export function useOnlineChessGame({
       serverClockStartedAt: string | null,
       serverTurn: ChessColor,
     ) => {
-      const now = Date.now();
-      const previousActiveClock = activeClockRef.current;
-      const currentWhiteTimeMs =
-        displayedWhiteTimeMsRef.current;
-      const currentBlackTimeMs =
-        displayedBlackTimeMsRef.current;
-      const incrementMs = incrementMsRef.current;
-
-      const hasCurrentWhiteTime = currentWhiteTimeMs > 0;
-      const hasCurrentBlackTime = currentBlackTimeMs > 0;
-
-      let nextWhiteTimeMs = Math.max(0, serverWhiteTimeMs);
-      let nextBlackTimeMs = Math.max(0, serverBlackTimeMs);
-
-      if (hasCurrentWhiteTime) {
-        if (serverTurn === "w") {
-          // The newly/currently active clock must never move upward.
-          nextWhiteTimeMs = Math.min(
-            nextWhiteTimeMs,
-            currentWhiteTimeMs,
-          );
-        } else if (previousActiveClock === serverTurn) {
-          // White was already inactive; keep its frozen local value.
-          nextWhiteTimeMs = currentWhiteTimeMs;
-        } else if (previousActiveClock === "w") {
-          // White just moved. Only a configured increment is allowed
-          // to increase its visible clock.
-          nextWhiteTimeMs = Math.min(
-            nextWhiteTimeMs,
-            currentWhiteTimeMs + incrementMs,
-          );
-        }
-      }
-
-      if (hasCurrentBlackTime) {
-        if (serverTurn === "b") {
-          // The newly/currently active clock must never move upward.
-          nextBlackTimeMs = Math.min(
-            nextBlackTimeMs,
-            currentBlackTimeMs,
-          );
-        } else if (previousActiveClock === serverTurn) {
-          // Black was already inactive; keep its frozen local value.
-          nextBlackTimeMs = currentBlackTimeMs;
-        } else if (previousActiveClock === "b") {
-          // Black just moved. Only a configured increment is allowed
-          // to increase its visible clock.
-          nextBlackTimeMs = Math.min(
-            nextBlackTimeMs,
-            currentBlackTimeMs + incrementMs,
-          );
-        }
-      }
-
-      setWhiteTimeMs(nextWhiteTimeMs);
-      setBlackTimeMs(nextBlackTimeMs);
+      setWhiteTimeMs(serverWhiteTimeMs);
+      setBlackTimeMs(serverBlackTimeMs);
       setClockStartedAt(serverClockStartedAt);
       setServerActiveClock(serverTurn);
-      setClockAnchorMs(
-        serverClockStartedAt ? now : null,
-      );
-      setClockNowMs(now);
+      setClockNowMs(Date.now());
 
       displayedWhiteTimeMsRef.current =
-        nextWhiteTimeMs;
+        Math.max(0, serverWhiteTimeMs);
       displayedBlackTimeMsRef.current =
-        nextBlackTimeMs;
+        Math.max(0, serverBlackTimeMs);
       activeClockRef.current =
         serverClockStartedAt ? serverTurn : null;
     },
@@ -928,7 +868,7 @@ export function useOnlineChessGame({
   useEffect(() => {
     if (
       isGameOver ||
-      clockAnchorMs === null ||
+      !clockStartedAt ||
       !activeClock ||
       timeoutRefreshRequestedRef.current
     ) {
@@ -948,7 +888,7 @@ export function useOnlineChessGame({
     void fetchGameState();
   }, [
     activeClock,
-    clockAnchorMs,
+    clockStartedAt,
     displayedBlackTimeMs,
     displayedWhiteTimeMs,
     fetchGameState,
@@ -963,21 +903,73 @@ export function useOnlineChessGame({
       .on(
         "broadcast",
         { event: "game-updated" },
-        () => {
+        (message) => {
+          const payload = message.payload as
+            | {
+                gameId?: string;
+                rematchGameId?: string;
+              }
+            | undefined;
+
+          // A newly accepted rematch already has its own game ID.
+          // Navigate through state immediately instead of waiting for
+          // another GET/poll to discover it from the finished game.
+          if (
+            payload?.gameId === gameId &&
+            payload.rematchGameId
+          ) {
+            setRematchOfferBy(null);
+            setRematchOfferedAt(null);
+            setRematchGameId(payload.rematchGameId);
+            return;
+          }
+
           if (!isSendingMoveRef.current) {
             void fetchGameState();
           }
         },
-      )
-      .subscribe((status, error) => {
-        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
-          console.warn("ONLINE REALTIME CHANNEL WARNING:", status, error);
+      );
+
+    let isRealtimeSubscribed = false;
+
+    channel.subscribe((status, error) => {
+      if (status === "SUBSCRIBED") {
+        isRealtimeSubscribed = true;
+        realtimeChannelRef.current = channel;
+
+        // Reconcile once immediately after Realtime is actually ready.
+        // This closes the short window between the initial GET and the
+        // channel subscription where a move/resign event could be missed.
+        if (!isSendingMoveRef.current) {
+          void fetchGameState();
         }
-      });
 
-    realtimeChannelRef.current = channel;
+        return;
+      }
 
-    // Slower safety fallback if Realtime is temporarily interrupted.
+      if (
+        status === "CHANNEL_ERROR" ||
+        status === "TIMED_OUT" ||
+        status === "CLOSED"
+      ) {
+        isRealtimeSubscribed = false;
+
+        if (realtimeChannelRef.current === channel) {
+          realtimeChannelRef.current = null;
+        }
+
+        if (status !== "CLOSED") {
+          console.warn(
+            "ONLINE REALTIME CHANNEL WARNING:",
+            status,
+            error,
+          );
+        }
+      }
+    });
+
+    // Safety fallback only. Normal moves/actions should arrive through
+    // Supabase Realtime; polling is not the primary synchronization path.
     const intervalId = window.setInterval(
       () => {
         if (!isSendingMoveRef.current) {
@@ -989,6 +981,8 @@ export function useOnlineChessGame({
 
     return () => {
       window.clearInterval(intervalId);
+
+      isRealtimeSubscribed = false;
 
       if (realtimeChannelRef.current === channel) {
         realtimeChannelRef.current = null;
@@ -1063,7 +1057,9 @@ export function useOnlineChessGame({
     setWhiteTimeMs(optimisticWhiteTimeMs);
     setBlackTimeMs(optimisticBlackTimeMs);
     setServerActiveClock(optimisticActiveClock);
-    setClockAnchorMs(optimisticClockNow);
+    setClockStartedAt(
+      new Date(optimisticClockNow).toISOString(),
+    );
     setClockNowMs(optimisticClockNow);
 
     activeClockRef.current =
@@ -1571,7 +1567,15 @@ export function useOnlineChessGame({
           await realtimeChannel.send({
             type: "broadcast",
             event: "game-updated",
-            payload: { gameId },
+            payload: {
+              gameId,
+              ...(data.rematchGame?.id
+                ? {
+                    rematchGameId:
+                      data.rematchGame.id,
+                  }
+                : {}),
+            },
           });
         } catch (error) {
           console.error(

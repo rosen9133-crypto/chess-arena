@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Chessboard } from "react-chessboard";
 import type { Square } from "chess.js";
 
@@ -11,6 +12,7 @@ import OnlineDrawDialog from "@/components/OnlineDrawDialog";
 import OnlineGameOverDialog from "@/components/OnlineGameOverDialog";
 import OnlineResignDialog from "@/components/OnlineResignDialog";
 import SoundControl from "@/components/SoundControl";
+import LogoutButton from "@/components/LogoutButton";
 import { useOnlineChessGame } from "@/hooks/useOnlineChessGame";
 
 type ChessColor = "w" | "b";
@@ -303,18 +305,21 @@ function OnlineGameNavigation({
       <button
         type="button"
         onClick={() => onNavigate("/dashboard")}
-        className="flex items-center gap-2 rounded-xl px-2 py-2 text-left transition hover:bg-white/[0.04]"
+        className="flex shrink-0 flex-col items-center rounded-xl px-2 pb-2 pt-1 text-center transition hover:bg-white/[0.04]"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-yellow-400/25 bg-yellow-400/10 text-lg text-yellow-300">
-          ♚
+        <Image
+          src="/images/chess-arena-logo.png"
+          alt="Chess Arena"
+          width={112}
+          height={112}
+          priority
+          className="h-[clamp(84px,13dvh,116px)] w-[clamp(84px,13dvh,116px)] rounded-[1.35rem] object-cover shadow-[0_0_30px_rgba(251,191,36,0.12)]"
+        />
+        <span className="mt-1 block text-[13px] font-black tracking-wide text-white">
+          CHESS <span className="text-yellow-400">ARENA</span>
         </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[13px] font-black tracking-wide text-white">
-            CHESS ARENA
-          </span>
-          <span className="block text-[8px] font-bold uppercase tracking-[0.22em] text-yellow-400/75">
-            Your Game. Your Arena.
-          </span>
+        <span className="mt-0.5 block text-[8px] font-bold uppercase tracking-[0.22em] text-yellow-400/75">
+          Your Game. Your Arena.
         </span>
       </button>
 
@@ -355,23 +360,27 @@ function OnlineGameNavigation({
         </button>
       </nav>
 
-      <button
-        type="button"
-        onClick={() => onNavigate("/profile")}
-        className="mt-2 flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/65 p-2 text-left transition hover:border-slate-700"
-      >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-yellow-400/25 bg-slate-900 text-xs font-black text-yellow-300">
-          {username.slice(0, 1).toUpperCase()}
-        </span>
-        <span className="min-w-0">
-          <span className="block truncate text-[11px] font-black text-white">
-            {username}
+      <div className="mt-2 shrink-0 space-y-2">
+        <button
+          type="button"
+          onClick={() => onNavigate("/profile")}
+          className="flex w-full items-center gap-2 rounded-xl border border-slate-800 bg-slate-950/65 p-2 text-left transition hover:border-slate-700"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-yellow-400/25 bg-slate-900 text-xs font-black text-yellow-300">
+            {username.slice(0, 1).toUpperCase()}
           </span>
-          <span className="block text-[9px] font-bold text-yellow-300">
-            {rating} 🏆
+          <span className="min-w-0">
+            <span className="block truncate text-[11px] font-black text-white">
+              {username}
+            </span>
+            <span className="block text-[9px] font-bold text-yellow-300">
+              {rating} 🏆
+            </span>
           </span>
-        </span>
-      </button>
+        </button>
+
+        <LogoutButton compact />
+      </div>
     </aside>
   );
 }

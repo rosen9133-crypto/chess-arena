@@ -62,25 +62,25 @@ export async function POST(request: Request) {
     data:
       result === "win"
         ? {
-            wins: {
+            computerWins: {
               increment: 1,
             },
           }
         : result === "loss"
           ? {
-              losses: {
+              computerLosses: {
                 increment: 1,
               },
             }
           : {
-              draws: {
+              computerDraws: {
                 increment: 1,
               },
             },
     select: {
-      wins: true,
-      losses: true,
-      draws: true,
+      computerWins: true,
+      computerLosses: true,
+      computerDraws: true,
     },
   });
 
