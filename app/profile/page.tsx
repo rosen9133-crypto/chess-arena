@@ -13,6 +13,7 @@ import ChallengeFriendButton from "@/components/ChallengeFriendButton";
 import IncomingGameChallengeRow from "@/components/IncomingGameChallengeRow";
 import UnblockUserButton from "@/components/UnblockUserButton";
 import FriendsRealtimeSync from "@/components/FriendsRealtimeSync";
+import EditProfileForm from "@/components/EditProfileForm";
 import { prisma } from "@/lib/prisma";
 
 type GameResult = "WHITE_WIN" | "BLACK_WIN" | "DRAW" | null;
@@ -98,6 +99,10 @@ export default async function ProfilePage({
     select: {
       id: true,
       username: true,
+      displayName: true,
+      bio: true,
+      countryCode: true,
+      avatarUrl: true,
       bulletRating: true,
       blitzRating: true,
       rapidRating: true,
@@ -638,8 +643,16 @@ export default async function ProfilePage({
             </Link>
 
             <div className="flex items-center gap-3 rounded-xl bg-slate-900/80 px-3 py-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-full border border-amber-400/30 bg-amber-400/10 font-black text-amber-300">
-                {user.username.charAt(0).toUpperCase()}
+              <div className="relative flex h-8 w-8 shrink-0 items-center justify-center overflow-hidden rounded-full border border-amber-400/30 bg-amber-400/10 font-black text-amber-300">
+                {user.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    alt={`${user.username} avatar`}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  user.username.charAt(0).toUpperCase()
+                )}
               </div>
               <div className="min-w-0">
                 <p className="truncate text-sm font-black">{user.username}</p>
@@ -736,8 +749,16 @@ export default async function ProfilePage({
 
               <div className="relative z-10 flex min-h-[260px] flex-col justify-end gap-6 p-6 sm:p-8 lg:flex-row lg:items-end lg:justify-between">
                 <div className="flex min-w-0 items-end gap-5">
-                  <div className="flex h-24 w-24 shrink-0 items-center justify-center rounded-2xl border border-amber-300/35 bg-[#080d15]/90 text-4xl font-black text-amber-300 shadow-2xl sm:h-28 sm:w-28">
-                    {user.username.charAt(0).toUpperCase()}
+                  <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-amber-300/35 bg-[#080d15]/90 text-4xl font-black text-amber-300 shadow-2xl sm:h-28 sm:w-28">
+                    {user.avatarUrl ? (
+                      <img
+                        src={user.avatarUrl}
+                        alt={`${user.username} avatar`}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      user.username.charAt(0).toUpperCase()
+                    )}
                   </div>
                   <div className="min-w-0 pb-1">
                     <p className="text-[10px] font-black uppercase tracking-[0.3em] text-amber-400">
@@ -819,6 +840,15 @@ export default async function ProfilePage({
 
             {activeTab === "overview" ? (
               <>
+                <div className="mt-5">
+                  <EditProfileForm
+                    initialDisplayName={user.displayName}
+                    initialBio={user.bio}
+                    initialCountryCode={user.countryCode}
+                    initialAvatarUrl={user.avatarUrl}
+                  />
+                </div>
+
             <section className="mt-5 grid gap-4 xl:grid-cols-[1.15fr_1.85fr]">
               <div className="rounded-2xl border border-slate-800 bg-[#0a1019] p-5">
                 <p className="text-[10px] font-black uppercase tracking-[0.24em] text-amber-400">

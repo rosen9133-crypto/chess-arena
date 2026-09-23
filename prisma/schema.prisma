@@ -65,6 +65,11 @@ model User {
   email    String @unique
   password String
 
+  displayName String?
+  bio         String?
+  countryCode String?
+  avatarUrl   String?
+
   rating Int @default(1500)
 
   bulletRating          Float @default(1500)
