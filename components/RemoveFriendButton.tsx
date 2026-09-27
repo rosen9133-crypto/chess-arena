@@ -79,18 +79,18 @@ export default function RemoveFriendButton({
   }
 
   return (
-    <div className="flex flex-col items-start gap-2 sm:items-end">
+    <div className="flex flex-col items-start gap-1 sm:items-end">
       <button
         type="button"
         onClick={handleRemove}
         disabled={isLoading}
-        className="rounded-xl border border-rose-400/35 bg-rose-400/10 px-5 py-2.5 text-sm font-black text-rose-300 transition hover:border-rose-300/60 hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-60"
+        className="inline-flex items-center justify-center rounded-lg border border-rose-400/30 bg-rose-400/10 px-4 py-2 text-xs font-black uppercase tracking-[0.12em] text-rose-300 transition hover:border-rose-300/55 hover:bg-rose-400/15 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {isLoading ? "Removing..." : "Remove Friend"}
       </button>
 
       {error ? (
-        <p className="max-w-[260px] text-xs font-semibold text-rose-400">
+        <p className="max-w-[220px] text-xs font-semibold text-rose-400 sm:text-right">
           {error}
         </p>
       ) : null}

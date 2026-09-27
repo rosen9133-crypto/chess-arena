@@ -62,47 +62,34 @@ export default function AcceptGameChallengeButton({
 
       const channel = supabase.channel(`friends:${challengerId}`);
 
-      await new Promise<void>((resolve, reject) => {
-        const timeoutId = window.setTimeout(() => {
-          reject(new Error("Realtime subscription timeout."));
-        }, 5000);
+      channel.subscribe(async (status) => {
+        if (status !== "SUBSCRIBED") return;
 
-        channel.subscribe((status) => {
-          if (status === "SUBSCRIBED") {
-            window.clearTimeout(timeoutId);
-            resolve();
-          }
-
-          if (
-            status === "CHANNEL_ERROR" ||
-            status === "TIMED_OUT" ||
-            status === "CLOSED"
-          ) {
-            window.clearTimeout(timeoutId);
-            reject(new Error(`Realtime channel status: ${status}`));
-          }
-        });
+        try {
+          await channel.send({
+            type: "broadcast",
+            event: "friends-updated",
+            payload: {
+              kind: "game-challenge",
+              challengeId,
+              status: "ACCEPTED",
+              gameId,
+            },
+          });
+        } catch (realtimeError) {
+          console.error(
+            "Accepted challenge realtime notification error:",
+            realtimeError,
+          );
+        } finally {
+          await supabase.removeChannel(channel);
+        }
       });
-
-      await channel.send({
-        type: "broadcast",
-        event: "friends-updated",
-        payload: {
-          kind: "game-challenge",
-          challengeId,
-          status: "ACCEPTED",
-          gameId,
-        },
-      });
-
-      await supabase.removeChannel(channel);
 
       router.push(`/play/online/game/${gameId}`);
     } catch (acceptError) {
       console.error("Accept game challenge error:", acceptError);
 
-      // The game may already have been created successfully even if the
-      // realtime notification failed. Refresh so the UI can reconcile.
       router.refresh();
 
       setError(

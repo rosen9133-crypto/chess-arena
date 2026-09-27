@@ -12,7 +12,6 @@ import BlockUserButton from "@/components/BlockUserButton";
 import ChallengeFriendButton from "@/components/ChallengeFriendButton";
 import IncomingGameChallengeRow from "@/components/IncomingGameChallengeRow";
 import UnblockUserButton from "@/components/UnblockUserButton";
-import FriendsRealtimeSync from "@/components/FriendsRealtimeSync";
 import EditProfileForm from "@/components/EditProfileForm";
 import { prisma } from "@/lib/prisma";
 
@@ -595,7 +594,6 @@ export default async function ProfilePage({
 
   return (
     <main className="min-h-screen bg-[#070c13] text-white">
-      <FriendsRealtimeSync userId={user.id} />
       <div className="flex min-h-screen">
         <aside className="chess-arena-sidebar sticky top-0 hidden h-screen w-[224px] shrink-0 overflow-y-auto overflow-x-hidden border-r border-slate-800/90 bg-[#050a10]/98 xl:flex xl:flex-col">
           <div className="shrink-0 border-b border-slate-800/80 px-4 py-2">

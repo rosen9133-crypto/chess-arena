@@ -15,22 +15,46 @@ export default function FriendsRealtimeSync({
   const router = useRouter();
 
   useEffect(() => {
+    let hasSubscribedOnce = false;
+
     const channel = supabase
       .channel(`friends:${userId}`)
       .on("broadcast", { event: "friends-updated" }, () => {
         router.refresh();
       })
-      .subscribe();
+      .subscribe((status) => {
+        if (status !== "SUBSCRIBED") {
+          return;
+        }
 
-    // Safety fallback: if a Realtime broadcast is missed while the browser
-    // reconnects or the tab changes state, refresh the authoritative server
-    // data automatically. This runs only while the Friends tab is mounted.
-    const intervalId = window.setInterval(() => {
+        if (hasSubscribedOnce) {
+          router.refresh();
+          return;
+        }
+
+        hasSubscribedOnce = true;
+      });
+
+    function refreshAfterReturning() {
+      if (document.visibilityState === "visible") {
+        router.refresh();
+      }
+    }
+
+    function refreshAfterReconnect() {
       router.refresh();
-    }, 5000);
+    }
+
+    document.addEventListener("visibilitychange", refreshAfterReturning);
+    window.addEventListener("online", refreshAfterReconnect);
 
     return () => {
-      window.clearInterval(intervalId);
+      document.removeEventListener(
+        "visibilitychange",
+        refreshAfterReturning,
+      );
+      window.removeEventListener("online", refreshAfterReconnect);
+
       void supabase.removeChannel(channel);
     };
   }, [router, userId]);

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 
 import { auth } from "@/auth";
 import LogoutButton from "@/components/LogoutButton";
+import NotificationBell from "@/components/NotificationBell";
 import { prisma } from "@/lib/prisma";
 
 type GameResult = "WHITE_WIN" | "BLACK_WIN" | "DRAW" | null;
@@ -201,10 +202,11 @@ export default async function DashboardPage() {
             </button>
 
             <div className="flex items-center gap-3 rounded-xl bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-slate-950/90 px-3 py-[clamp(0.05rem,0.14vh,0.14rem)]">
-              <div className="flex h-[clamp(1.7rem,3.15vh,2rem)] w-[clamp(1.7rem,3.15vh,2rem)] items-center justify-center rounded-full border border-amber-400/30 bg-amber-400/10 font-black text-amber-300">
+              <div className="flex h-[clamp(1.7rem,3.15vh,2rem)] w-[clamp(1.7rem,3.15vh,2rem)] shrink-0 items-center justify-center rounded-full border border-amber-400/30 bg-amber-400/10 font-black text-amber-300">
                 {user.username.charAt(0).toUpperCase()}
               </div>
-              <div className="min-w-0">
+
+              <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-black text-slate-100">
                   {user.username}
                 </p>
@@ -212,147 +214,148 @@ export default async function DashboardPage() {
                   Rapid {Math.round(user.rapidRating)}
                 </p>
               </div>
+
+              <NotificationBell />
             </div>
           </div>
-        
-        <style>{`
-          .chess-arena-sidebar {
-            --sidebar-gap: clamp(2px, 0.32vh, 5px);
-            --nav-font: clamp(0.74rem, 1.55vh, 0.94rem);
-            --nav-icon: clamp(1.55rem, 3.35vh, 2rem);
-            --brand-logo: clamp(72px, 12vh, 104px);
-            scrollbar-width: thin;
-            scrollbar-color: rgba(245, 158, 11, 0.22) transparent;
-          }
 
-          .chess-arena-sidebar::-webkit-scrollbar {
-            width: 4px;
-          }
-
-          .chess-arena-sidebar::-webkit-scrollbar-thumb {
-            background: rgba(245, 158, 11, 0.22);
-            border-radius: 999px;
-          }
-
-          .chess-arena-sidebar::-webkit-scrollbar-track {
-            background: transparent;
-          }
-
-          /* The sidebar is one viewport-height system:
-             brand + 11 nav rows + Gold Pass/profile footer all share the space. */
-          .reference-sidebar-nav {
-            display: grid;
-            flex: 1 1 auto;
-            min-height: 0;
-            grid-template-rows: repeat(11, minmax(30px, 1fr));
-            gap: var(--sidebar-gap);
-            padding-top: clamp(0.2rem, 0.55vh, 0.55rem);
-            padding-bottom: clamp(0.2rem, 0.55vh, 0.55rem);
-          }
-
-          .reference-nav-item {
-            display: flex;
-            min-height: 0;
-            align-items: center;
-            gap: clamp(0.48rem, 0.75vw, 0.72rem);
-            border: 1px solid transparent;
-            border-radius: clamp(0.45rem, 0.9vh, 0.65rem);
-            padding: 0 clamp(0.48rem, 0.7vw, 0.72rem);
-            color: rgb(203 213 225);
-            font-size: var(--nav-font);
-            font-weight: 600;
-            white-space: nowrap;
-            transition:
-              background-color 150ms ease,
-              border-color 150ms ease,
-              color 150ms ease;
-          }
-
-          .reference-nav-item:hover {
-            background: rgba(30, 41, 59, 0.58);
-            color: white;
-          }
-
-          .reference-nav-active {
-            border-color: rgba(251, 191, 36, 0.48);
-            background: linear-gradient(
-              90deg,
-              rgba(245, 158, 11, 0.16),
-              rgba(245, 158, 11, 0.07)
-            );
-            color: rgb(252 211 77);
-            box-shadow: inset 3px 0 0 rgb(251 191 36);
-          }
-
-          .reference-nav-item > span:first-child {
-            width: var(--nav-icon);
-            height: var(--nav-icon);
-            flex: 0 0 var(--nav-icon);
-          }
-
-          /* Footer is ALWAYS present. Its footprint scales with viewport height. */
-          .chess-arena-sidebar .sidebar-footer {
-            display: block;
-            flex: 0 0 auto;
-            padding: clamp(0.35rem, 0.9vh, 0.75rem);
-          }
-
-          /* Existing Gold Pass/profile controls inside footer also scale naturally. */
-          .chess-arena-sidebar .sidebar-footer a,
-          .chess-arena-sidebar .sidebar-footer button {
-            min-height: clamp(2rem, 4.5vh, 2.75rem);
-          }
-
-          /* Only genuinely short viewports use scroll.
-             Nothing is hidden; the same complete sidebar remains available. */
-          @media (min-width: 1280px) and (max-height: 620px) {
+          <style>{`
             .chess-arena-sidebar {
-              overflow-y: auto;
+              --sidebar-gap: clamp(2px, 0.32vh, 5px);
+              --nav-font: clamp(0.74rem, 1.55vh, 0.94rem);
+              --nav-icon: clamp(1.55rem, 3.35vh, 2rem);
+              --brand-logo: clamp(72px, 12vh, 104px);
+              scrollbar-width: thin;
+              scrollbar-color: rgba(245, 158, 11, 0.22) transparent;
             }
 
+            .chess-arena-sidebar::-webkit-scrollbar {
+              width: 4px;
+            }
+
+            .chess-arena-sidebar::-webkit-scrollbar-thumb {
+              background: rgba(245, 158, 11, 0.22);
+              border-radius: 999px;
+            }
+
+            .chess-arena-sidebar::-webkit-scrollbar-track {
+              background: transparent;
+            }
+
+            /* The sidebar is one viewport-height system:
+               brand + 11 nav rows + Gold Pass/profile footer all share the space. */
             .reference-sidebar-nav {
-              flex: none;
-              grid-template-rows: repeat(11, 30px);
+              display: grid;
+              flex: 1 1 auto;
+              min-height: 0;
+              grid-template-rows: repeat(11, minmax(30px, 1fr));
+              gap: var(--sidebar-gap);
+              padding-top: clamp(0.2rem, 0.55vh, 0.55rem);
+              padding-bottom: clamp(0.2rem, 0.55vh, 0.55rem);
             }
-          }
 
+            .reference-nav-item {
+              display: flex;
+              min-height: 0;
+              align-items: center;
+              gap: clamp(0.48rem, 0.75vw, 0.72rem);
+              border: 1px solid transparent;
+              border-radius: clamp(0.45rem, 0.9vh, 0.65rem);
+              padding: 0 clamp(0.48rem, 0.7vw, 0.72rem);
+              color: rgb(203 213 225);
+              font-size: var(--nav-font);
+              font-weight: 600;
+              white-space: nowrap;
+              transition:
+                background-color 150ms ease,
+                border-color 150ms ease,
+                color 150ms ease;
+            }
 
-          /* Step 30: give Gold Pass and the profile a clean visual separation
-             without hiding either one or sacrificing the fluid navigation. */
-          .chess-arena-sidebar .sidebar-footer {
-            display: flex;
-            flex-direction: column;
-            gap: clamp(0.35rem, 0.75vh, 0.65rem);
-            padding-top: clamp(0.45rem, 0.9vh, 0.75rem);
-            padding-bottom: clamp(0.4rem, 0.8vh, 0.7rem);
-          }
+            .reference-nav-item:hover {
+              background: rgba(30, 41, 59, 0.58);
+              color: white;
+            }
 
-          .chess-arena-sidebar .sidebar-footer > * {
-            flex-shrink: 0;
-          }
+            .reference-nav-active {
+              border-color: rgba(251, 191, 36, 0.48);
+              background: linear-gradient(
+                90deg,
+                rgba(245, 158, 11, 0.16),
+                rgba(245, 158, 11, 0.07)
+              );
+              color: rgb(252 211 77);
+              box-shadow: inset 3px 0 0 rgb(251 191 36);
+            }
 
-          .chess-arena-sidebar .sidebar-footer a,
-          .chess-arena-sidebar .sidebar-footer button {
-            margin: 0;
-          }
+            .reference-nav-item > span:first-child {
+              width: var(--nav-icon);
+              height: var(--nav-icon);
+              flex: 0 0 var(--nav-icon);
+            }
 
-          .player-hub-tabs:has(#player-hub-computer:checked) .player-hub-online-content {
-            display: none;
-          }
-
-          .player-hub-tabs:has(#player-hub-computer:checked) .player-hub-computer-content {
-            display: block;
-          }
-
-          @media (min-width: 1280px) and (max-height: 760px) {
+            /* Footer is ALWAYS present. Its footprint scales with viewport height. */
             .chess-arena-sidebar .sidebar-footer {
-              gap: clamp(0.22rem, 0.5vh, 0.4rem);
-              padding-top: clamp(0.3rem, 0.6vh, 0.5rem);
-              padding-bottom: clamp(0.28rem, 0.55vh, 0.45rem);
+              display: block;
+              flex: 0 0 auto;
+              padding: clamp(0.35rem, 0.9vh, 0.75rem);
             }
-          }
-        `}</style>
-</aside>
+
+            /* Existing Gold Pass/profile controls inside footer also scale naturally. */
+            .chess-arena-sidebar .sidebar-footer a,
+            .chess-arena-sidebar .sidebar-footer button {
+              min-height: clamp(2rem, 4.5vh, 2.75rem);
+            }
+
+            /* Only genuinely short viewports use scroll.
+               Nothing is hidden; the same complete sidebar remains available. */
+            @media (min-width: 1280px) and (max-height: 620px) {
+              .chess-arena-sidebar {
+                overflow-y: auto;
+              }
+
+              .reference-sidebar-nav {
+                flex: none;
+                grid-template-rows: repeat(11, 30px);
+              }
+            }
+
+            /* Step 30: give Gold Pass and the profile a clean visual separation
+               without hiding either one or sacrificing the fluid navigation. */
+            .chess-arena-sidebar .sidebar-footer {
+              display: flex;
+              flex-direction: column;
+              gap: clamp(0.35rem, 0.75vh, 0.65rem);
+              padding-top: clamp(0.45rem, 0.9vh, 0.75rem);
+              padding-bottom: clamp(0.4rem, 0.8vh, 0.7rem);
+            }
+
+            .chess-arena-sidebar .sidebar-footer > * {
+              flex-shrink: 0;
+            }
+
+            .chess-arena-sidebar .sidebar-footer a,
+            .chess-arena-sidebar .sidebar-footer button {
+              margin: 0;
+            }
+
+            .player-hub-tabs:has(#player-hub-computer:checked) .player-hub-online-content {
+              display: none;
+            }
+
+            .player-hub-tabs:has(#player-hub-computer:checked) .player-hub-computer-content {
+              display: block;
+            }
+
+            @media (min-width: 1280px) and (max-height: 760px) {
+              .chess-arena-sidebar .sidebar-footer {
+                gap: clamp(0.22rem, 0.5vh, 0.4rem);
+                padding-top: clamp(0.3rem, 0.6vh, 0.5rem);
+                padding-bottom: clamp(0.28rem, 0.55vh, 0.45rem);
+              }
+            }
+          `}</style>
+        </aside>
 
         <div className="min-w-0 flex-1 bg-[#070c13]">
           <div className="mx-auto flex min-h-screen w-full max-w-[1800px] flex-col px-2 pb-0 pt-0 sm:px-3 xl:px-[22px]">
@@ -393,7 +396,10 @@ export default async function DashboardPage() {
                       href="/play/online"
                       className="group flex min-h-11 items-center justify-between rounded-md bg-gradient-to-r from-amber-300 to-amber-500 px-6 font-black uppercase tracking-wide text-slate-950 shadow-[0_12px_30px_rgba(245,158,11,0.18)] transition hover:brightness-105"
                     >
-                      <span className="flex items-center gap-3"><span className="text-xl">⚡</span>Play Online</span>
+                      <span className="flex items-center gap-3">
+                        <span className="text-xl">⚡</span>
+                        Play Online
+                      </span>
                       <span>›</span>
                     </Link>
 
@@ -401,15 +407,22 @@ export default async function DashboardPage() {
                       href="/play/computer"
                       className="group flex min-h-11 items-center justify-between rounded-md border border-slate-600/90 bg-black/45 px-6 font-bold uppercase tracking-wide text-slate-100 backdrop-blur-sm transition hover:border-slate-400 hover:bg-black/60"
                     >
-                      <span className="flex items-center gap-3"><span>▣</span>Play Computer</span>
+                      <span className="flex items-center gap-3">
+                        <span>▣</span>
+                        Play Computer
+                      </span>
                       <span>›</span>
                     </Link>
                   </div>
 
                   <p className="mt-4 text-xs text-slate-400">
-                    Welcome back, <strong className="text-white">{user.username}</strong>
+                    Welcome back,{" "}
+                    <strong className="text-white">{user.username}</strong>
                     <span className="mx-2 text-slate-600">•</span>
-                    Rapid <strong className="text-amber-300">{Math.round(user.rapidRating)}</strong>
+                    Rapid{" "}
+                    <strong className="text-amber-300">
+                      {Math.round(user.rapidRating)}
+                    </strong>
                   </p>
                 </div>
               </div>
@@ -418,10 +431,14 @@ export default async function DashboardPage() {
               <div className="absolute right-[1.8%] top-[34%] z-20 hidden w-[138px] -translate-y-1/2 border-l border-amber-400/30 pl-5 min-[1280px]:block">
                 <div className="mb-5 h-px w-10 bg-amber-400" />
                 <p className="font-serif text-[13px] uppercase leading-[1.85] tracking-[0.25em] text-slate-100/90">
-                  Different<br />
-                  players.<br />
-                  Different<br />
-                  arenas.<br />
+                  Different
+                  <br />
+                  players.
+                  <br />
+                  Different
+                  <br />
+                  arenas.
+                  <br />
                   One passion.
                 </p>
               </div>
@@ -463,21 +480,31 @@ export default async function DashboardPage() {
                 </div>
 
                 <div className="player-hub-online-content">
-                  <p className="mt-2 text-lg font-black">{totalGames} games played</p>
+                  <p className="mt-2 text-lg font-black">
+                    {totalGames} games played
+                  </p>
                   <p className="text-xs text-slate-400">
                     {user.wins} wins · {user.draws} draws · {user.losses} defeats
                   </p>
                   <p className="mt-1 text-[11px] text-slate-500">
-                    Rapid <span className="font-bold text-amber-300">{Math.round(user.rapidRating)}</span>
+                    Rapid{" "}
+                    <span className="font-bold text-amber-300">
+                      {Math.round(user.rapidRating)}
+                    </span>
                   </p>
                 </div>
 
                 <div className="player-hub-computer-content hidden">
-                  <p className="mt-2 text-lg font-black">{computerTotalGames} games played</p>
-                  <p className="text-xs text-slate-400">
-                    {user.computerWins} wins · {user.computerDraws} draws · {user.computerLosses} defeats
+                  <p className="mt-2 text-lg font-black">
+                    {computerTotalGames} games played
                   </p>
-                  <p className="mt-1 text-[11px] text-slate-500">Stockfish · No rating impact</p>
+                  <p className="text-xs text-slate-400">
+                    {user.computerWins} wins · {user.computerDraws} draws ·{" "}
+                    {user.computerLosses} defeats
+                  </p>
+                  <p className="mt-1 text-[11px] text-slate-500">
+                    Stockfish · No rating impact
+                  </p>
                 </div>
               </div>
             </section>
@@ -488,17 +515,36 @@ export default async function DashboardPage() {
                 <h2 className="text-sm font-black uppercase tracking-wide text-amber-400">
                   Choose Your Arena
                 </h2>
-                <Link href="/arenas" className="text-xs font-bold uppercase tracking-wide text-slate-400 transition hover:text-white">
+                <Link
+                  href="/arenas"
+                  className="text-xs font-bold uppercase tracking-wide text-slate-400 transition hover:text-white"
+                >
                   View All →
                 </Link>
               </div>
 
               <div className="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
                 {[
-                  ["Roman Colosseum", "Strength and glory", "from-amber-950/80 via-orange-900/45 to-slate-950"],
-                  ["Frozen Kingdom", "Cold and majestic", "from-sky-950/90 via-blue-900/45 to-slate-950"],
-                  ["Inferno Arena", "Fire and power", "from-red-950/90 via-orange-950/55 to-slate-950"],
-                  ["Cosmic Arena", "Beyond the limits", "from-violet-950/90 via-indigo-950/55 to-slate-950"],
+                  [
+                    "Roman Colosseum",
+                    "Strength and glory",
+                    "from-amber-950/80 via-orange-900/45 to-slate-950",
+                  ],
+                  [
+                    "Frozen Kingdom",
+                    "Cold and majestic",
+                    "from-sky-950/90 via-blue-900/45 to-slate-950",
+                  ],
+                  [
+                    "Inferno Arena",
+                    "Fire and power",
+                    "from-red-950/90 via-orange-950/55 to-slate-950",
+                  ],
+                  [
+                    "Cosmic Arena",
+                    "Beyond the limits",
+                    "from-violet-950/90 via-indigo-950/55 to-slate-950",
+                  ],
                 ].map(([name, subtitle, gradient]) => (
                   <Link
                     key={name}
@@ -519,7 +565,9 @@ export default async function DashboardPage() {
                     ) : (
                       <>
                         <div className="absolute -right-8 -top-10 h-28 w-28 rounded-full border border-white/10 bg-white/5" />
-                        <div className="absolute bottom-4 right-5 text-6xl text-white/10">♛</div>
+                        <div className="absolute bottom-4 right-5 text-6xl text-white/10">
+                          ♛
+                        </div>
                       </>
                     )}
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-4 pt-10">
@@ -536,55 +584,94 @@ export default async function DashboardPage() {
               <div className="relative min-h-[176px] overflow-hidden rounded-lg border border-slate-800/90 bg-[#070d14] p-4">
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_80%_40%,rgba(245,158,11,0.16),transparent_35%)]" />
                 <div className="relative z-10 max-w-[62%]">
-                  <p className="text-xs font-black uppercase tracking-wide text-amber-400">Live Tournament</p>
+                  <p className="text-xs font-black uppercase tracking-wide text-amber-400">
+                    Live Tournament
+                  </p>
                   <h3 className="mt-2 text-xl font-black">Arena Cup 👑</h3>
-                  <p className="mt-2 text-sm text-slate-300">10+0 <span className="mx-2 text-amber-400">•</span> Rated <span className="mx-2 text-amber-400">•</span> Prizes</p>
-                  <p className="mt-3 text-sm text-slate-400">Compete. Climb. Become a champion.</p>
-                  <Link href="/tournaments" className="mt-3 inline-flex min-h-10 items-center gap-4 rounded-md bg-gradient-to-r from-amber-300 to-amber-500 px-6 font-black text-slate-950">
+                  <p className="mt-2 text-sm text-slate-300">
+                    10+0{" "}
+                    <span className="mx-2 text-amber-400">•</span>
+                    Rated{" "}
+                    <span className="mx-2 text-amber-400">•</span>
+                    Prizes
+                  </p>
+                  <p className="mt-3 text-sm text-slate-400">
+                    Compete. Climb. Become a champion.
+                  </p>
+                  <Link
+                    href="/tournaments"
+                    className="mt-3 inline-flex min-h-10 items-center gap-4 rounded-md bg-gradient-to-r from-amber-300 to-amber-500 px-6 font-black text-slate-950"
+                  >
                     Join Tournament <span>→</span>
                   </Link>
                 </div>
-                <div className="absolute bottom-2 right-7 text-[110px] leading-none text-amber-300/20">♛</div>
+                <div className="absolute bottom-2 right-7 text-[110px] leading-none text-amber-300/20">
+                  ♛
+                </div>
               </div>
 
               <div className="rounded-lg border border-slate-800/90 bg-[#070d14] p-4">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-300">Last Game</p>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-300">
+                  Last Game
+                </p>
+
                 {recentGames.length > 0 ? (
                   <>
                     <div className="mt-5 flex items-center gap-3">
                       <div className="flex h-12 w-12 items-center justify-center rounded-full border border-amber-400/30 bg-amber-400/10 font-black text-amber-300">
                         {user.username.charAt(0).toUpperCase()}
                       </div>
+
                       <div>
                         <p className="font-black text-white">
                           {recentGames[0].whitePlayerId === user.id
                             ? recentGames[0].blackPlayer.username
                             : recentGames[0].whitePlayer.username}
                         </p>
+
                         <p className="text-xs text-slate-400">
-                          {recentGames[0].timeControl} · {formatTimeControl(recentGames[0].initialTimeSeconds, recentGames[0].incrementSeconds)}
+                          {recentGames[0].timeControl} ·{" "}
+                          {formatTimeControl(
+                            recentGames[0].initialTimeSeconds,
+                            recentGames[0].incrementSeconds,
+                          )}
                         </p>
                       </div>
                     </div>
-                    <Link href={`/play/online/game/${recentGames[0].id}`} className="mt-4 flex min-h-10 items-center justify-center rounded-md border border-slate-600 text-sm font-black uppercase text-white transition hover:bg-white/5">
+
+                    <Link
+                      href={`/play/online/game/${recentGames[0].id}`}
+                      className="mt-4 flex min-h-10 items-center justify-center rounded-md border border-slate-600 text-sm font-black uppercase text-white transition hover:bg-white/5"
+                    >
                       View Game →
                     </Link>
                   </>
                 ) : (
-                  <p className="mt-4 text-xs text-slate-400">No completed games yet.</p>
+                  <p className="mt-4 text-xs text-slate-400">
+                    No completed games yet.
+                  </p>
                 )}
               </div>
 
               <div className="relative overflow-hidden rounded-lg border border-slate-800/90 bg-[#070d14] p-4">
-                <p className="text-xs font-black uppercase tracking-wide text-slate-300">Daily Puzzle</p>
+                <p className="text-xs font-black uppercase tracking-wide text-slate-300">
+                  Daily Puzzle
+                </p>
                 <div className="mt-5 flex items-center gap-4">
                   <div className="text-6xl text-amber-400">✚</div>
                   <div>
-                    <p className="font-semibold text-slate-200">Sharpen your mind.</p>
-                    <p className="text-sm text-slate-400">Get better every day.</p>
+                    <p className="font-semibold text-slate-200">
+                      Sharpen your mind.
+                    </p>
+                    <p className="text-sm text-slate-400">
+                      Get better every day.
+                    </p>
                   </div>
                 </div>
-                <Link href="/puzzles" className="mt-4 flex min-h-10 items-center justify-center gap-4 rounded-md bg-gradient-to-r from-amber-300 to-amber-500 px-5 font-black uppercase text-slate-950">
+                <Link
+                  href="/puzzles"
+                  className="mt-4 flex min-h-10 items-center justify-center gap-4 rounded-md bg-gradient-to-r from-amber-300 to-amber-500 px-5 font-black uppercase text-slate-950"
+                >
                   Play Puzzle <span>→</span>
                 </Link>
               </div>
@@ -592,18 +679,27 @@ export default async function DashboardPage() {
 
             {/* Cinematic separator from the reference, before the existing real Player Hub data. */}
             <section className="relative mt-2 flex min-h-[96px] flex-1 items-center overflow-hidden rounded-t-lg border border-slate-800/90 bg-gradient-to-r from-[#090e16] via-[#111827] to-[#080d16] px-8 py-6">
-              <div className="absolute right-[18%] top-1/2 -translate-y-1/2 text-[100px] leading-none text-amber-400/10">♚</div>
+              <div className="absolute right-[18%] top-1/2 -translate-y-1/2 text-[100px] leading-none text-amber-400/10">
+                ♚
+              </div>
+
               <p className="relative z-10 max-w-md font-serif text-sm uppercase leading-6 tracking-[0.25em] text-slate-200">
-                Legends aren't born.<br />
-                They are forged<br />
+                Legends aren't born.
+                <br />
+                They are forged
+                <br />
                 in the arena.
               </p>
+
               <div className="absolute right-7 top-1/2 -translate-y-1/2 text-right">
-                <p className="font-serif text-xl tracking-[0.18em] text-white">CHESS</p>
-                <p className="font-serif text-xl tracking-[0.18em] text-amber-400">ARENA</p>
+                <p className="font-serif text-xl tracking-[0.18em] text-white">
+                  CHESS
+                </p>
+                <p className="font-serif text-xl tracking-[0.18em] text-amber-400">
+                  ARENA
+                </p>
               </div>
             </section>
-
           </div>
         </div>
       </div>
